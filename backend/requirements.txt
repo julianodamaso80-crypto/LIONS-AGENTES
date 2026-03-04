@@ -1,0 +1,104 @@
+# FastAPI Core
+fastapi>=0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.12.4
+pydantic-settings==2.12.0
+
+# LangChain & LangGraph (versões do seu ambiente local)
+langchain==1.0.8
+langchain-anthropic==1.1.0
+langchain-community==0.4.1
+langchain-core==1.1.0
+langchain-experimental==0.4.0
+langchain-google-genai==3.1.0
+langchain-openai==1.0.3
+langchain-text-splitters==1.0.0
+langgraph==1.0.3
+langgraph-checkpoint==3.0.1
+langgraph-prebuilt==1.0.5
+langgraph-sdk==0.2.9
+
+# LLM Providers
+openai>=1.10.0
+anthropic>=0.18.0
+google-ai-generativelanguage==0.9.0
+
+# Cryptography
+cryptography>=42.0.0
+bcrypt>=4.0.0
+
+# Database & Storage
+supabase==2.10.0
+psycopg[binary]>=3.0.0
+psycopg-pool>=3.2.0
+langgraph-checkpoint-postgres>=2.0.0
+
+# Vector Store
+qdrant-client>=1.11.0
+
+# Object Storage
+minio==7.2.3
+
+# Document Processing
+PyPDF2==3.0.1
+python-docx==1.1.0
+
+# Utils
+httpx>=0.26
+requests>=2.31.0
+python-dotenv==1.0.1
+python-multipart==0.0.6
+pytz>=2024.1
+
+# Evaluation
+pandas>=2.0.0
+tqdm>=4.66.0
+
+# Reranking
+cohere>=5.0.0
+
+# Hybrid Search
+fastembed>=0.2.0
+
+# Web Search
+tavily-python>=0.3.0
+
+# Message Buffer
+redis>=5.0.1
+apscheduler>=3.10.4
+python-slugify>=8.0.0
+
+# Background Workers (Billing)
+celery[redis]>=5.3.0
+
+# Retry Logic
+tenacity>=8.2.0
+
+# Observability (LangSmith)
+langsmith>=0.1.0
+
+# Cache Management
+cachetools>=5.3.0
+
+# Rate Limiting
+slowapi==0.1.9
+
+sentry-sdk[fastapi]
+
+# Payments
+stripe>=7.0.0
+
+# Email
+sendgrid>=6.10.0
+
+# PII & Safety
+presidio-analyzer>=2.2.0
+presidio-anonymizer>=2.2.0
+spacy>=3.0.0
+groq>=0.4.0
+
+# Server
+gunicorn>=21.2.0
+
+# Code Quality
+ruff>=0.14.0
