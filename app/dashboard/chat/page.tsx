@@ -8,7 +8,6 @@ import { MessageBubble } from '@/components/MessageBubble';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { UnifiedSidebar } from '@/components/UnifiedSidebar';
 import { sendTextToN8N, sendVoiceToN8N } from '@/lib/n8nClient';
-import { supabase } from '@/lib/supabase'; // KEPT: Only for Realtime subscriptions
 import { Message } from '@/lib/types';
 import { useUserId } from '@/hooks/useUserId';
 import { Badge } from '@/components/ui/badge';
@@ -99,62 +98,33 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  // 🔔 REALTIME: Receber mensagens instantaneamente (Human Handoff)
+  // 🔔 POLLING: Receber mensagens periodicamente (Human Handoff)
   useEffect(() => {
     if (!conversationId) return;
 
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          const newMessage = payload.new as Message;
+    const pollMessages = async () => {
+      try {
+        const response = await fetch(`/api/conversations?session_id=${sessionId}`);
+        if (!response.ok) return;
 
-          // 🔥 FIX: Se mensagem tem sender_user_id (human handoff), enriquecer com dados do sender
-          if (newMessage.sender_user_id && !newMessage.sender) {
-            try {
-              const res = await fetch(`/api/users/${newMessage.sender_user_id}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.user) {
-                  newMessage.sender = {
-                    first_name: data.user.first_name,
-                    last_name: data.user.last_name,
-                    avatar_url: data.user.avatar_url,
-                  };
-                }
-              }
-            } catch {
-              // Silent fail - message will show without sender name
-            }
-          }
-
-          // Evita duplicar mensagem que já existe no state (por ID ou por conteúdo para user messages)
+        const data = await response.json();
+        if (data.messages) {
           setMessages((prev) => {
-            const exists = prev.some(
-              (m) =>
-                m.id === newMessage.id ||
-                (m.role === 'user' &&
-                  newMessage.role === 'user' &&
-                  m.content === newMessage.content),
+            const newMsgs = (data.messages as Message[]).filter(
+              (m: Message) => !prev.some((existing) => existing.id === m.id),
             );
-            if (exists) return prev;
-            return [...prev, newMessage];
+            if (newMsgs.length === 0) return prev;
+            return [...prev, ...newMsgs];
           });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+        }
+      } catch {
+        // Silent fail
+      }
     };
-  }, [conversationId]);
+
+    const interval = setInterval(pollMessages, 3000);
+    return () => clearInterval(interval);
+  }, [conversationId, sessionId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

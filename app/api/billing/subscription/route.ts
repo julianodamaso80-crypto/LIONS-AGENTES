@@ -7,13 +7,7 @@ import {
   SessionData,
   AdminSessionData,
 } from '@/lib/iron-session';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne, queryAll, countWhere } from '@/lib/db';
 
 async function getCompanyIdFromSession(): Promise<string | null> {
   try {
@@ -27,11 +21,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
 
     // If admin session has adminId, try to get company_id from users_v2
     if (adminSession.adminId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', adminSession.adminId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [adminSession.adminId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -41,11 +34,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
     // Try user session
     const userSession = await getIronSession<SessionData>(cookieStore, sessionOptions);
     if (userSession.userId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', userSession.userId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [userSession.userId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -75,21 +67,20 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ========================================
-    // Busca direta no Supabase (sem Python backend)
-    // A sessão já foi validada pelo Iron Session
-    // ========================================
-
     // 1. Buscar subscription ativa ou past_due com dados do plano
-    const { data: subscription, error: subError } = await supabaseAdmin
-      .from('subscriptions')
-      .select('*, plans(*)')
-      .eq('company_id', companyId)
-      .in('status', ['active', 'past_due'])
-      .limit(1)
-      .single();
+    const subscription = await queryOne(
+      `SELECT s.*, p.id as plan_id, p.name as plan_name, p.price_brl as plan_price_brl,
+              p.monthly_price as plan_monthly_price, p.display_credits as plan_display_credits,
+              p.credits_limit as plan_credits_limit, p.max_agents as plan_max_agents,
+              p.max_knowledge_bases as plan_max_knowledge_bases, p.features as plan_features
+       FROM subscriptions s
+       LEFT JOIN plans p ON p.id = s.plan_id
+       WHERE s.company_id = $1 AND s.status = ANY($2::text[])
+       LIMIT 1`,
+      [companyId, ['active', 'past_due']],
+    );
 
-    if (subError || !subscription) {
+    if (!subscription) {
       return NextResponse.json({
         has_subscription: false,
         status: null,
@@ -101,14 +92,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const plan = subscription.plans || {};
+    // Build plan object from joined data
+    const plan: any = {
+      id: subscription.plan_id,
+      name: subscription.plan_name,
+      price_brl: subscription.plan_price_brl,
+      monthly_price: subscription.plan_monthly_price,
+      display_credits: subscription.plan_display_credits,
+      credits_limit: subscription.plan_credits_limit,
+      max_agents: subscription.plan_max_agents,
+      max_knowledge_bases: subscription.plan_max_knowledge_bases,
+      features: subscription.plan_features,
+    };
 
     // 2. Buscar saldo de créditos
-    const { data: credits } = await supabaseAdmin
-      .from('company_credits')
-      .select('balance_brl')
-      .eq('company_id', companyId)
-      .single();
+    const credits = await queryOne(
+      'SELECT balance_brl FROM company_credits WHERE company_id = $1',
+      [companyId],
+    );
 
     const balanceBrl = parseFloat(credits?.balance_brl || '0');
 
@@ -127,17 +128,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Contar agentes ativos
-    const { count: agentsUsed } = await supabaseAdmin
-      .from('agents')
-      .select('id', { count: 'exact', head: true })
-      .eq('company_id', companyId)
-      .eq('is_active', true);
+    const agentsUsed = await countWhere('agents', { company_id: companyId, is_active: true });
 
     // 5. Contar documentos (bases de conhecimento)
-    const { count: kbsUsed } = await supabaseAdmin
-      .from('documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('company_id', companyId);
+    const kbsUsed = await countWhere('documents', { company_id: companyId });
 
     // 6. Limites do plano
     const maxAgents = plan.max_agents || 3;

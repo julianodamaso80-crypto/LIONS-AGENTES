@@ -123,7 +123,7 @@ export default function CostsPage() {
       if (data.error) {
         if (data.error.includes('does not exist')) {
           setError(
-            `Função RPC não encontrada. Execute a migração 016 no Supabase SQL Editor. Erro: ${data.error}`,
+            `Função RPC não encontrada. Execute a migração 016 no banco de dados. Erro: ${data.error}`,
           );
         } else {
           setError(`Erro ao chamar RPC: ${data.error}`);

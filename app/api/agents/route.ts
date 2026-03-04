@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll } from '@/lib/db';
 import { sessionOptions, SessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
@@ -27,39 +27,27 @@ export async function GET(request: NextRequest) {
     const userId = session.userId;
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // GET USER'S COMPANY
     // =============================================
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', userId)
-      .single();
+    const userData = await queryOne<{ company_id: string }>(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [userId],
+    );
 
-    if (userError || !userData?.company_id) {
+    if (!userData?.company_id) {
       return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 });
     }
 
     // =============================================
     // FETCH ACTIVE AGENTS
     // =============================================
-    const { data: agents, error: agentsError } = await supabaseAdmin
-      .from('agents')
-      .select('id, name, is_subagent, allow_direct_chat')
-      .eq('company_id', userData.company_id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: true });
+    const agents = await queryAll(
+      'SELECT id, name, is_subagent, allow_direct_chat FROM agents WHERE company_id = $1 AND is_active = true ORDER BY created_at ASC',
+      [userData.company_id],
+    );
 
-    if (agentsError) {
-      console.error('[AGENTS API] Error:', agentsError);
+    if (!agents) {
+      console.error('[AGENTS API] Error fetching agents');
       return NextResponse.json({ error: 'Erro ao buscar agentes' }, { status: 500 });
     }
 

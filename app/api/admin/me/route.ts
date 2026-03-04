@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 import {
   sessionOptions,
   adminSessionOptions,
@@ -10,13 +10,6 @@ import {
 } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * GET /api/admin/me
@@ -44,13 +37,12 @@ export async function GET(request: NextRequest) {
       console.log('[ADMIN ME] Admin session detected, adminId:', adminId);
 
       // Try admin_users table first (Master Admin)
-      const { data: masterAdmin, error: masterError } = await supabaseAdmin
-        .from('admin_users')
-        .select('id, email, name')
-        .eq('id', adminId)
-        .single();
+      const masterAdmin = await queryOne(
+        'SELECT id, email, name FROM admin_users WHERE id = $1',
+        [adminId]
+      );
 
-      if (!masterError && masterAdmin) {
+      if (masterAdmin) {
         console.log('[ADMIN ME] ✅ Master Admin found:', masterAdmin.email);
         return NextResponse.json({
           user: {
@@ -71,16 +63,15 @@ export async function GET(request: NextRequest) {
       }
 
       // Try users_v2 with ROLE FILTER at database level
-      const { data: companyAdmin, error: companyError } = await supabaseAdmin
-        .from('users_v2')
-        .select(
-          'id, email, first_name, last_name, company_id, role, status, is_owner, cpf, birth_date, avatar_url, companies(company_name)',
-        )
-        .eq('id', adminId)
-        .in('role', ['admin_company', 'owner', 'admin'])
-        .single();
+      const companyAdmin = await queryOne(
+        `SELECT u.id, u.email, u.first_name, u.last_name, u.company_id, u.role, u.status, u.is_owner, u.cpf, u.birth_date, u.avatar_url, c.company_name
+         FROM users_v2 u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id = $1 AND u.role = ANY($2::text[])`,
+        [adminId, ['admin_company', 'owner', 'admin']]
+      );
 
-      if (!companyError && companyAdmin) {
+      if (companyAdmin) {
         console.log('[ADMIN ME] ✅ Company Admin found via admin session:', companyAdmin.email);
         return NextResponse.json({
           user: {
@@ -97,7 +88,7 @@ export async function GET(request: NextRequest) {
             avatar_url: companyAdmin.avatar_url,
           },
           company: {
-            company_name: (companyAdmin.companies as any)?.company_name || 'Empresa',
+            company_name: companyAdmin.company_name || 'Empresa',
           },
           sessionType: 'company_admin',
         });
@@ -137,16 +128,15 @@ export async function GET(request: NextRequest) {
       console.log('[ADMIN ME] User session detected, userId:', userId);
 
       // CRITICAL: Filter by ROLE at DATABASE level
-      const { data: user, error } = await supabaseAdmin
-        .from('users_v2')
-        .select(
-          'id, email, first_name, last_name, company_id, role, status, is_owner, cpf, birth_date, avatar_url, companies(company_name)',
-        )
-        .eq('id', userId)
-        .in('role', ['admin_company', 'owner', 'admin'])
-        .single();
+      const user = await queryOne(
+        `SELECT u.id, u.email, u.first_name, u.last_name, u.company_id, u.role, u.status, u.is_owner, u.cpf, u.birth_date, u.avatar_url, c.company_name
+         FROM users_v2 u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id = $1 AND u.role = ANY($2::text[])`,
+        [userId, ['admin_company', 'owner', 'admin']]
+      );
 
-      if (error || !user) {
+      if (!user) {
         console.log(
           '[ADMIN ME] ⛔ BLOCKED: User is not an admin (filtered at DB level). userId:',
           userId,
@@ -176,7 +166,7 @@ export async function GET(request: NextRequest) {
           avatar_url: user.avatar_url,
         },
         company: {
-          company_name: (user.companies as any)?.company_name || 'Empresa',
+          company_name: user.company_name || 'Empresa',
         },
         sessionType: 'company_admin',
       });

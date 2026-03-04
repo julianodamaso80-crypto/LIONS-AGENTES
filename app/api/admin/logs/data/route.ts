@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { queryAll } from '@/lib/db';
 
 /**
  * GET /api/admin/logs/data
@@ -24,15 +24,6 @@ export async function GET(request: NextRequest) {
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // GET DATE FILTER FROM QUERY
     // =============================================
     const { searchParams } = new URL(request.url);
@@ -42,49 +33,43 @@ export async function GET(request: NextRequest) {
     // =============================================
     // FETCH DATA
     // =============================================
-    const [logsResult, usersResult, adminsResult, companiesResult] = await Promise.all([
-      supabaseAdmin
-        .from('system_logs')
-        .select('*')
-        .gte('timestamp', dateThreshold)
-        .order('timestamp', { ascending: false })
-        .limit(1000),
+    const [logs, users, admins, companies] = await Promise.all([
+      queryAll(
+        'SELECT * FROM system_logs WHERE timestamp >= $1 ORDER BY timestamp DESC LIMIT 1000',
+        [dateThreshold]
+      ),
       // IMPORTANT: Never include password_hash or sensitive fields
-      supabaseAdmin.from('users_v2').select('id, email, first_name, last_name, company_id'),
-      supabaseAdmin.from('admin_users').select('id, email, name'),
-      supabaseAdmin.from('companies').select('id, company_name'),
+      queryAll('SELECT id, email, first_name, last_name, company_id FROM users_v2'),
+      queryAll('SELECT id, email, name FROM admin_users'),
+      queryAll('SELECT id, company_name FROM companies'),
     ]);
-
-    if (logsResult.error) {
-      console.error('[ADMIN LOGS DATA] Error fetching logs:', logsResult.error);
-    }
 
     // =============================================
     // BUILD LOOKUP MAPS
     // =============================================
     const usersMap: Record<string, any> = {};
-    if (usersResult.data) {
-      usersResult.data.forEach((user) => {
+    if (users) {
+      users.forEach((user) => {
         usersMap[user.id] = user;
       });
     }
 
     const adminsMap: Record<string, any> = {};
-    if (adminsResult.data) {
-      adminsResult.data.forEach((admin) => {
+    if (admins) {
+      admins.forEach((admin) => {
         adminsMap[admin.id] = admin;
       });
     }
 
     const companiesMap: Record<string, any> = {};
-    if (companiesResult.data) {
-      companiesResult.data.forEach((company) => {
+    if (companies) {
+      companies.forEach((company) => {
         companiesMap[company.id] = company;
       });
     }
 
     return NextResponse.json({
-      logs: logsResult.data || [],
+      logs: logs || [],
       users: usersMap,
       admins: adminsMap,
       companies: companiesMap,

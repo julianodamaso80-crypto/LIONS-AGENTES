@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import {
     sessionOptions,
     adminSessionOptions,
     SessionData,
     AdminSessionData,
 } from '@/lib/iron-session';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/user/accept-terms
@@ -50,29 +44,27 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify this is the active terms_of_use document
-        const { data: activeDoc } = await supabaseAdmin
-            .from('legal_documents')
-            .select('id')
-            .eq('id', documentId)
-            .eq('type', 'terms_of_use')
-            .eq('is_active', true)
-            .maybeSingle();
+        const activeDoc = await queryOne(
+            `SELECT id FROM legal_documents WHERE id = $1 AND type = 'terms_of_use' AND is_active = true`,
+            [documentId],
+        );
 
         if (!activeDoc) {
             return NextResponse.json({ error: 'Documento inválido ou não ativo' }, { status: 400 });
         }
 
         // Update user's accepted terms version
-        const { error } = await supabaseAdmin
-            .from('users_v2')
-            .update({
-                accepted_terms_version: documentId,
-                terms_accepted_at: new Date().toISOString(),
-            })
-            .eq('id', userId);
-
-        if (error) {
-            console.error('[ACCEPT TERMS] Error updating:', error.message);
+        try {
+            await updateOne(
+                'users_v2',
+                {
+                    accepted_terms_version: documentId,
+                    terms_accepted_at: new Date().toISOString(),
+                },
+                { id: userId },
+            );
+        } catch (updateError: any) {
+            console.error('[ACCEPT TERMS] Error updating:', updateError.message);
             return NextResponse.json({ error: 'Erro ao atualizar aceite' }, { status: 500 });
         }
 

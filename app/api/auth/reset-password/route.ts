@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { hashPassword, validatePasswordStrength } from '@/lib/auth';
 import { rateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/rate-limit';
 import { log, sanitizeEmail } from '@/lib/logger';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/auth/reset-password
@@ -59,7 +52,7 @@ export async function POST(request: NextRequest) {
     // =============================================
 
     // Check IP rate limit
-    const ipLimit = rateLimit(
+    const ipLimit = await rateLimit(
       `reset:ip:${ip}`,
       RATE_LIMITS.RESET_PASSWORD_IP.maxRequests,
       RATE_LIMITS.RESET_PASSWORD_IP.windowMs,
@@ -83,26 +76,23 @@ export async function POST(request: NextRequest) {
     // =============================================
 
     // Try users_v2 first
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, email, role, reset_token, reset_token_expires_at, reset_attempts')
-      .ilike('email', normalizedEmail)
-      .maybeSingle();
+    const user = await queryOne(
+      'SELECT id, email, role, reset_token, reset_token_expires_at, reset_attempts FROM users_v2 WHERE LOWER(email) = LOWER($1)',
+      [normalizedEmail],
+    );
 
-    if (!userError && user) {
-      return await processReset(supabaseAdmin, 'users_v2', user, normalizedCode, newPassword, ip);
+    if (user) {
+      return await processReset('users_v2', user, normalizedCode, newPassword, ip);
     }
 
     // Try admin_users (Master Admin)
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admin_users')
-      .select('id, email, reset_token, reset_token_expires_at, reset_attempts')
-      .ilike('email', normalizedEmail)
-      .maybeSingle();
+    const admin = await queryOne(
+      'SELECT id, email, reset_token, reset_token_expires_at, reset_attempts FROM admin_users WHERE LOWER(email) = LOWER($1)',
+      [normalizedEmail],
+    );
 
-    if (!adminError && admin) {
+    if (admin) {
       return await processReset(
-        supabaseAdmin,
         'admin_users',
         admin,
         normalizedCode,
@@ -128,7 +118,6 @@ export async function POST(request: NextRequest) {
  * Process password reset for user or admin
  */
 async function processReset(
-  supabaseClient: any,
   table: 'users_v2' | 'admin_users',
   record: any,
   code: string,
@@ -161,10 +150,7 @@ async function processReset(
   // Check if token matches
   if (!record.reset_token || record.reset_token !== code) {
     // Increment failed attempts
-    await supabaseClient
-      .from(table)
-      .update({ reset_attempts: currentAttempts + 1 })
-      .eq('id', record.id);
+    await updateOne(table, { reset_attempts: currentAttempts + 1 }, { id: record.id });
 
     log.warn('[RESET PASSWORD] Invalid token', {
       email: sanitizeEmail(record.email),
@@ -207,18 +193,15 @@ async function processReset(
   // UPDATE PASSWORD AND CLEAR TOKEN
   // =============================================
 
-  const { error: updateError } = await supabaseClient
-    .from(table)
-    .update({
+  try {
+    await updateOne(table, {
       password_hash: newHash,
       reset_token: null,
       reset_token_expires_at: null,
       reset_attempts: 0,
       password_migrated_at: new Date().toISOString(), // Mark as bcrypt
-    })
-    .eq('id', record.id);
-
-  if (updateError) {
+    }, { id: record.id });
+  } catch (updateError: any) {
     log.error('[RESET PASSWORD] Error updating password', { error: updateError.message });
     return NextResponse.json({ error: 'Erro ao atualizar senha' }, { status: 500 });
   }

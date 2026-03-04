@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { uploadFile } from '@/lib/storage';
 
 // =============================================
-// CONFIGURAÇÕES DE SEGURANÇA (alinhado com Supabase Storage)
+// CONFIGURAÇÕES DE SEGURANÇA
 // =============================================
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (igual ao bucket chat-media)
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const ALLOWED_BUCKETS = ['chat-media', 'attachments', 'avatars', 'voice-messages'];
 
@@ -19,7 +19,7 @@ const ALLOWED_MIME_TYPES: Record<string, string[]> = {
 /**
  * POST /api/upload
  *
- * Uploads a file to Supabase Storage with security validations.
+ * Uploads a file to S3-compatible storage (MinIO) with security validations.
  * Requires: smith_user_session OR smith_admin_session cookie
  */
 export async function POST(request: NextRequest) {
@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const bucket = (formData.get('bucket') as string) || 'attachments';
-    const pathPrefix = (formData.get('path') as string) || '';
 
     if (!file) {
       return NextResponse.json({ error: 'Arquivo não fornecido' }, { status: 400 });
@@ -77,52 +76,17 @@ export async function POST(request: NextRequest) {
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT (necessário para upload)
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
-    // GENERATE UNIQUE FILENAME
-    // =============================================
-    const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 8);
-    const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
-    const fileName = `${timestamp}_${randomId}.${extension}`;
-    const filePath = pathPrefix ? `${pathPrefix}/${fileName}` : fileName;
-
-    // =============================================
-    // UPLOAD FILE
+    // UPLOAD FILE TO S3/MINIO
     // =============================================
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
 
-    const { data, error: uploadError } = await supabaseAdmin.storage
-      .from(bucket)
-      .upload(filePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error('[UPLOAD API] Error uploading file:', uploadError);
-      return NextResponse.json({ error: 'Erro ao fazer upload do arquivo' }, { status: 500 });
-    }
-
-    // =============================================
-    // GET PUBLIC URL
-    // =============================================
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from(bucket).getPublicUrl(filePath);
+    const { publicUrl, path } = await uploadFile(bucket, buffer, file.type, file.name);
 
     return NextResponse.json(
       {
         success: true,
-        filePath: data.path,
+        filePath: path,
         publicUrl,
         fileName: file.name,
         mimeType: file.type,

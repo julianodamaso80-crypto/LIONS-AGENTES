@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, insertOne, query } from '@/lib/db';
 import { randomBytes } from 'crypto';
 import { sendInviteEmail } from '@/lib/email';
 import {
@@ -12,13 +12,6 @@ import {
 } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/invites/generate
@@ -49,25 +42,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ VALIDATION: Check if email already exists in users_v2 table
+    // VALIDATION: Check if email already exists in users_v2 table
     const normalizedEmail = email.toLowerCase().trim();
 
-    const { data: existingUser, error: existingUserError } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, email')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
+    const existingUser = await queryOne(
+      'SELECT id, email FROM users_v2 WHERE email = $1',
+      [normalizedEmail],
+    );
 
     if (existingUser) {
       return NextResponse.json(
         { error: 'Este e-mail já está cadastrado no sistema' },
         { status: 409 },
       );
-    }
-
-    if (existingUserError && existingUserError.code !== 'PGRST116') {
-      // PGRST116 = no rows returned, which is what we want
-      console.error('[INVITE GENERATE] Error checking existing email:', existingUserError);
     }
 
     // Check for master admin session
@@ -89,25 +76,27 @@ export async function POST(request: NextRequest) {
       finalCompanyId = requestedCompanyId;
 
       // Get company info including max_users for limit validation
-      const { data: company } = await supabaseAdmin
-        .from('companies')
-        .select('company_name, max_users')
-        .eq('id', finalCompanyId)
-        .single();
+      const company = await queryOne(
+        'SELECT company_name, max_users FROM companies WHERE id = $1',
+        [finalCompanyId],
+      );
 
       companyName = company?.company_name || 'Empresa';
       const maxAdmins = company?.max_users || 5;
 
       // VALIDATION: Check admin limit for admin_company invites
       if (inviteRole === 'admin_company') {
-        const { count: adminCount } = await supabaseAdmin
-          .from('users_v2')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', finalCompanyId)
-          .in('role', ['admin_company', 'owner', 'admin'])
-          .neq('status', 'suspended');
+        const countResult = await queryOne(
+          `SELECT COUNT(*)::int as count FROM users_v2
+           WHERE company_id = $1
+             AND role = ANY($2::text[])
+             AND status != 'suspended'`,
+          [finalCompanyId, ['admin_company', 'owner', 'admin']],
+        );
 
-        if ((adminCount || 0) >= maxAdmins) {
+        const adminCount = countResult?.count || 0;
+
+        if (adminCount >= maxAdmins) {
           return NextResponse.json(
             { error: `Limite de ${maxAdmins} administradores atingido para esta empresa` },
             { status: 403 },
@@ -139,13 +128,15 @@ export async function POST(request: NextRequest) {
       const userId = userSession.userId;
 
       // Get user and company info with is_owner
-      const { data: user, error: userError } = await supabaseAdmin
-        .from('users_v2')
-        .select('id, company_id, role, is_owner, companies:company_id(company_name)')
-        .eq('id', userId)
-        .single();
+      const user = await queryOne(
+        `SELECT u.id, u.company_id, u.role, u.is_owner, c.company_name
+         FROM users_v2 u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id = $1`,
+        [userId],
+      );
 
-      if (userError || !user) {
+      if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
@@ -175,26 +166,28 @@ export async function POST(request: NextRequest) {
 
       // Force company to user's company
       finalCompanyId = user.company_id;
-      companyName = (user.companies as any)?.company_name || 'Empresa';
+      companyName = user.company_name || 'Empresa';
 
       // VALIDATION 3: Check admin limit for admin_company invites
       if (inviteRole === 'admin_company') {
-        const { data: companyData } = await supabaseAdmin
-          .from('companies')
-          .select('max_users')
-          .eq('id', finalCompanyId)
-          .single();
+        const companyData = await queryOne(
+          'SELECT max_users FROM companies WHERE id = $1',
+          [finalCompanyId],
+        );
 
         const maxAdmins = companyData?.max_users || 5;
 
-        const { count: adminCount } = await supabaseAdmin
-          .from('users_v2')
-          .select('*', { count: 'exact', head: true })
-          .eq('company_id', finalCompanyId)
-          .in('role', ['admin_company', 'owner', 'admin'])
-          .neq('status', 'suspended');
+        const countResult = await queryOne(
+          `SELECT COUNT(*)::int as count FROM users_v2
+           WHERE company_id = $1
+             AND role = ANY($2::text[])
+             AND status != 'suspended'`,
+          [finalCompanyId, ['admin_company', 'owner', 'admin']],
+        );
 
-        if ((adminCount || 0) >= maxAdmins) {
+        const adminCount = countResult?.count || 0;
+
+        if (adminCount >= maxAdmins) {
           return NextResponse.json(
             { error: `Limite de ${maxAdmins} administradores atingido para esta empresa` },
             { status: 403 },
@@ -224,7 +217,7 @@ export async function POST(request: NextRequest) {
 
     // DEBUG: Log owner flag calculation
     const calculatedIsOwner = (isOwner && inviteRole === 'admin_company') || false;
-    console.log('[INVITE GENERATE] 🔍 Owner flag debug:', {
+    console.log('[INVITE GENERATE] Owner flag debug:', {
       isOwner_received: isOwner,
       inviteRole,
       finalRole,
@@ -233,29 +226,25 @@ export async function POST(request: NextRequest) {
     });
 
     // Insert invite with email, name, and owner flag
-    const { data: invite, error: inviteError } = await supabaseAdmin
-      .from('invites')
-      .insert({
-        company_id: finalCompanyId,
-        token,
-        role: finalRole,
-        is_owner_invite: calculatedIsOwner, // Use calculated value
-        email: email.toLowerCase().trim(),
-        name: name || null,
-        created_by: isMasterAdmin ? null : null,
-        max_uses: maxUses,
-        current_uses: 0,
-        expires_at: expiresAt.toISOString(),
-      })
-      .select()
-      .single();
+    const invite = await insertOne('invites', {
+      company_id: finalCompanyId,
+      token,
+      role: finalRole,
+      is_owner_invite: calculatedIsOwner,
+      email: email.toLowerCase().trim(),
+      name: name || null,
+      created_by: isMasterAdmin ? null : null,
+      max_uses: maxUses,
+      current_uses: 0,
+      expires_at: expiresAt.toISOString(),
+    });
 
-    if (inviteError || !invite) {
-      console.error('[INVITE GENERATE] Error:', inviteError);
+    if (!invite) {
+      console.error('[INVITE GENERATE] Error: insert returned null');
       return NextResponse.json({ error: 'Failed to generate invite' }, { status: 500 });
     }
 
-    console.log('[INVITE GENERATE] ✅ Invite saved with is_owner_invite:', invite.is_owner_invite);
+    console.log('[INVITE GENERATE] Invite saved with is_owner_invite:', invite.is_owner_invite);
 
     // Build invite link
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, insertOne, query, deleteWhere } from '@/lib/db';
 import {
   sessionOptions,
   adminSessionOptions,
@@ -10,13 +10,6 @@ import {
 } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * Helper to get company_id from session (user or admin)
@@ -44,11 +37,10 @@ async function getCompanyIdFromSession(): Promise<{
     }
 
     // Master admin without companyId - fetch from DB (if exists)
-    const { data: user } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', adminSession.adminId)
-      .single();
+    const user = await queryOne(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [adminSession.adminId]
+    );
 
     // Return with isMasterAdmin=true so we can bypass company checks
     return {
@@ -66,11 +58,10 @@ async function getCompanyIdFromSession(): Promise<{
 
   // If user without companyId, fetch from database
   if (userSession.userId) {
-    const { data: user } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', userSession.userId)
-      .single();
+    const user = await queryOne(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [userSession.userId]
+    );
     return {
       companyId: user?.company_id || null,
       userId: userSession.userId,
@@ -84,11 +75,11 @@ async function getCompanyIdFromSession(): Promise<{
 /**
  * GET /api/admin/integrations?agentId={id}
  * Fetch integration (WhatsApp) for a specific agent
- * 🔒 SECURITY: Validates that agent belongs to user's company
+ * SECURITY: Validates that agent belongs to user's company
  */
 export async function GET(request: NextRequest) {
   try {
-    // 🔒 Get company_id from authenticated session
+    // Get company_id from authenticated session
     const { companyId, userId, isMasterAdmin } = await getCompanyIdFromSession();
 
     if (!userId) {
@@ -107,14 +98,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'agentId is required' }, { status: 400 });
     }
 
-    // 🔒 SECURITY: First verify the agent exists (and belongs to user's company if not master admin)
-    const { data: agent, error: agentError } = await supabaseAdmin
-      .from('agents')
-      .select('id, company_id')
-      .eq('id', agentId)
-      .single();
+    // SECURITY: First verify the agent exists (and belongs to user's company if not master admin)
+    const agent = await queryOne(
+      'SELECT id, company_id FROM agents WHERE id = $1',
+      [agentId]
+    );
 
-    if (agentError || !agent) {
+    if (!agent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
@@ -127,20 +117,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Now safe to fetch integration
-    const { data, error } = await supabaseAdmin
-      .from('integrations')
-      .select('*')
-      .eq('agent_id', agentId)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    try {
+      const data = await queryAll(
+        'SELECT * FROM integrations WHERE agent_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [agentId]
+      );
 
-    if (error) {
-      console.error('[INTEGRATIONS API] Error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const integration = data && data.length > 0 ? data[0] : null;
+      return NextResponse.json({ integration });
+    } catch (dbError: any) {
+      console.error('[INTEGRATIONS API] Error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
-
-    const integration = data && data.length > 0 ? data[0] : null;
-    return NextResponse.json({ integration });
   } catch (error: any) {
     console.error('[INTEGRATIONS API] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -150,11 +138,11 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/admin/integrations
  * Create or update integration (upsert)
- * 🔒 SECURITY: Uses company_id from session, not from request body
+ * SECURITY: Uses company_id from session, not from request body
  */
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 Get company_id from authenticated session
+    // Get company_id from authenticated session
     const { companyId, userId, isMasterAdmin } = await getCompanyIdFromSession();
 
     if (!userId) {
@@ -185,14 +173,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'agent_id is required' }, { status: 400 });
     }
 
-    // 🔒 SECURITY: Verify the agent exists (and belongs to user's company if not master admin)
-    const { data: agent, error: agentError } = await supabaseAdmin
-      .from('agents')
-      .select('id, company_id')
-      .eq('id', agent_id)
-      .single();
+    // SECURITY: Verify the agent exists (and belongs to user's company if not master admin)
+    const agent = await queryOne(
+      'SELECT id, company_id FROM agents WHERE id = $1',
+      [agent_id]
+    );
 
-    if (agentError || !agent) {
+    if (!agent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 
@@ -204,13 +191,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // 🔒 SECURITY: Use agent's company_id for the integration (Master Admin uses agent's company)
+    // SECURITY: Use agent's company_id for the integration (Master Admin uses agent's company)
     const integrationCompanyId = isMasterAdmin ? agent.company_id : companyId;
 
-    // 🔒 SECURITY: Use company_id from agent (for Master Admin) or session
+    // SECURITY: Use company_id from agent (for Master Admin) or session
     const payload = {
       agent_id,
-      company_id: integrationCompanyId, // ✅ Uses agent's company for Master Admin
+      company_id: integrationCompanyId,
       provider: provider || 'z-api',
       identifier: identifier?.trim() || '',
       instance_id: instance_id?.trim() || '',
@@ -224,21 +211,27 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabaseAdmin
-      .from('integrations')
-      .upsert(payload, {
-        onConflict: 'provider,identifier',
-        ignoreDuplicates: false,
-      })
-      .select()
-      .single();
+    try {
+      // Upsert using INSERT ... ON CONFLICT
+      const keys = Object.keys(payload);
+      const values = Object.values(payload);
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const columns = keys.join(', ');
+      const updateClauses = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
 
-    if (error) {
-      console.error('[INTEGRATIONS API] Upsert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const upsertQuery = `
+        INSERT INTO integrations (${columns})
+        VALUES (${placeholders})
+        ON CONFLICT (provider, identifier) DO UPDATE SET ${updateClauses}
+        RETURNING *
+      `;
+
+      const result = await queryOne(upsertQuery, values);
+      return NextResponse.json({ integration: result });
+    } catch (dbError: any) {
+      console.error('[INTEGRATIONS API] Upsert error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
-
-    return NextResponse.json({ integration: data });
   } catch (error: any) {
     console.error('[INTEGRATIONS API] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -248,11 +241,11 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/admin/integrations?id={integrationId}
  * Delete an integration
- * 🔒 SECURITY: Validates integration belongs to user's company
+ * SECURITY: Validates integration belongs to user's company
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // 🔒 Get company_id from authenticated session
+    // Get company_id from authenticated session
     const { companyId, userId, isMasterAdmin } = await getCompanyIdFromSession();
 
     if (!userId) {
@@ -271,19 +264,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    // 🔒 SECURITY: Build delete query - Master Admin can delete any, regular users only their company's
-    let deleteQuery = supabaseAdmin.from('integrations').delete().eq('id', id);
-
-    // Only add company filter for non-master admins
-    if (!isMasterAdmin) {
-      deleteQuery = deleteQuery.eq('company_id', companyId);
-    }
-
-    const { error } = await deleteQuery;
-
-    if (error) {
-      console.error('[INTEGRATIONS API] Delete error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // SECURITY: Build delete query - Master Admin can delete any, regular users only their company's
+    try {
+      if (isMasterAdmin) {
+        await deleteWhere('integrations', { id });
+      } else {
+        await query(
+          'DELETE FROM integrations WHERE id = $1 AND company_id = $2',
+          [id, companyId]
+        );
+      }
+    } catch (dbError: any) {
+      console.error('[INTEGRATIONS API] Delete error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

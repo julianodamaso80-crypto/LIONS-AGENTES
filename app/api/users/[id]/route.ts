@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 
 /**
  * GET /api/users/[id]
@@ -29,25 +29,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // FETCH USER BASIC INFO
     // =============================================
-    const { data, error } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, first_name, last_name, avatar_url')
-      .eq('id', id)
-      .single();
+    const data = await queryOne(
+      'SELECT id, first_name, last_name, avatar_url FROM users_v2 WHERE id = $1',
+      [id],
+    );
 
-    if (error) {
-      console.error('[USERS API] Error:', error);
+    if (!data) {
+      console.error('[USERS API] Error: user not found');
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 

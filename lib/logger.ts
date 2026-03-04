@@ -1,24 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-
-// Service Role Client for logging (bypasses RLS)
-// Lazy initialization to avoid errors when imported on client-side
-let _supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin(): SupabaseClient | null {
-  // Only create on server-side where env vars exist
-  if (typeof window !== 'undefined') {
-    return null; // Running on client, can't use service role
-  }
-
-  if (!_supabaseAdmin && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    _supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-  }
-  return _supabaseAdmin;
-}
+import { insertOne } from './db';
 
 // =============================================
 // ENVIRONMENT CHECK
@@ -77,10 +57,6 @@ export interface LogEntry {
 // SANITIZATION FUNCTIONS (SECURITY)
 // =============================================
 
-/**
- * Sanitize email for logging
- * breninvs@hotmail.com -> bre***@hot***.com
- */
 export function sanitizeEmail(email: string): string {
   if (!email || !email.includes('@')) return '***@***.***';
 
@@ -88,24 +64,18 @@ export function sanitizeEmail(email: string): string {
   const [domainName, domainExt] = domain.split('.');
 
   const sanitizedLocal = local.length > 3 ? local.substring(0, 3) + '***' : '***';
-
   const sanitizedDomain =
     domainName && domainName.length > 3 ? domainName.substring(0, 3) + '***' : '***';
 
   return `${sanitizedLocal}@${sanitizedDomain}.${domainExt || '***'}`;
 }
 
-/**
- * Sanitize IP address for logging
- * 192.168.1.100 -> 192.168.***.***
- */
 export function sanitizeIP(ip: string): string {
   if (!ip) return '***';
   const parts = ip.split('.');
   if (parts.length === 4) {
     return `${parts[0]}.${parts[1]}.***.***`;
   }
-  // IPv6 or other
   return ip.substring(0, 10) + '***';
 }
 
@@ -121,11 +91,6 @@ interface LogOptions {
   [key: string]: any;
 }
 
-/**
- * Secure logging function
- * In development: logs full data
- * In production: sanitizes sensitive data
- */
 export function secureLog(level: LogLevel, message: string, options?: LogOptions): void {
   const timestamp = new Date().toISOString();
 
@@ -141,7 +106,6 @@ export function secureLog(level: LogLevel, message: string, options?: LogOptions
       sanitizedOptions.ip = sanitizeIP(options.ip);
     }
 
-    // Remove any keys ending with Key, Secret, Token, Password
     for (const key of Object.keys(sanitizedOptions)) {
       if (/key|secret|token|password|hash/i.test(key)) {
         sanitizedOptions[key] = '[REDACTED]';
@@ -150,7 +114,6 @@ export function secureLog(level: LogLevel, message: string, options?: LogOptions
   }
 
   const logData = sanitizedOptions ? `${message} ${JSON.stringify(sanitizedOptions)}` : message;
-
   const prefix = `[${timestamp}]`;
 
   switch (level) {
@@ -168,7 +131,6 @@ export function secureLog(level: LogLevel, message: string, options?: LogOptions
   }
 }
 
-// Convenience functions for secure logging
 export const log = {
   info: (message: string, options?: LogOptions) => secureLog('info', message, options),
   warn: (message: string, options?: LogOptions) => secureLog('warn', message, options),
@@ -180,25 +142,17 @@ export const log = {
 // SYSTEM ACTION LOGGING (DATABASE)
 // =============================================
 
-/**
- * Log system action to database
- * Used for audit trail and security monitoring
- */
 export async function logSystemAction(entry: LogEntry): Promise<void> {
   try {
-    const supabase = getSupabaseAdmin();
-
-    // Skip logging if running on client-side (no service role available)
-    if (!supabase) {
+    if (typeof window !== 'undefined') {
       console.log('[LOGGER] Skipping log (client-side):', entry.actionType);
       return;
     }
 
-    // Sanitize sensitive data in production before storing
     const sanitizedDetails =
       !isDev && entry.details ? sanitizeLogDetails(entry.details) : entry.details;
 
-    const { error } = await supabase.from('system_logs').insert({
+    await insertOne('system_logs', {
       timestamp: new Date().toISOString(),
       user_id: entry.userId || null,
       admin_id: entry.adminId || null,
@@ -206,35 +160,25 @@ export async function logSystemAction(entry: LogEntry): Promise<void> {
       action_type: entry.actionType,
       resource_type: entry.resourceType || null,
       resource_id: entry.resourceId || null,
-      details: sanitizedDetails || {},
+      details: JSON.stringify(sanitizedDetails || {}),
       ip_address: entry.ipAddress || null,
       user_agent: entry.userAgent || null,
       session_id: entry.sessionId || null,
       status: entry.status || 'success',
       error_message: entry.errorMessage || null,
     });
-
-    if (error) {
-      console.error('[LOGGER] Error inserting log:', error);
-    }
   } catch (error) {
     console.error('[LOGGER] Failed to log action:', error);
   }
 }
 
-/**
- * Sanitize log details object
- * Removes sensitive data from details before storing
- */
 function sanitizeLogDetails(details: Record<string, any>): Record<string, any> {
   const sanitized = { ...details };
 
   for (const key of Object.keys(sanitized)) {
-    // Redact sensitive keys
     if (/key|secret|token|password|hash/i.test(key)) {
       sanitized[key] = '[REDACTED]';
     }
-    // Sanitize email fields
     if (/email/i.test(key) && typeof sanitized[key] === 'string') {
       sanitized[key] = sanitizeEmail(sanitized[key]);
     }
@@ -243,10 +187,6 @@ function sanitizeLogDetails(details: Record<string, any>): Record<string, any> {
   return sanitized;
 }
 
-/**
- * Get client info from request
- * Extracts IP address and user agent for logging
- */
 export function getClientInfo(request: Request): { ipAddress?: string; userAgent?: string } {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');

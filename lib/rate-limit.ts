@@ -1,31 +1,10 @@
 /**
- * Rate Limiting Utility
+ * Rate Limiting Utility (Redis-backed)
  *
- * In-memory sliding window rate limiter.
- * For production, consider using Upstash Redis.
+ * Uses Redis sliding window for distributed rate limiting.
  */
 
-interface RateLimitRecord {
-  count: number;
-  resetAt: number;
-}
-
-// In-memory store (resets when server restarts)
-const rateLimitStore = new Map<string, RateLimitRecord>();
-
-// Cleanup expired entries periodically
-setInterval(() => {
-  const now = Date.now();
-  const keysToDelete: string[] = [];
-
-  rateLimitStore.forEach((record, key) => {
-    if (record.resetAt < now) {
-      keysToDelete.push(key);
-    }
-  });
-
-  keysToDelete.forEach((key) => rateLimitStore.delete(key));
-}, 60000); // Cleanup every minute
+import { checkRateLimit as redisCheckRateLimit } from './redis';
 
 export interface RateLimitResult {
   success: boolean;
@@ -40,49 +19,29 @@ export interface RateLimitResult {
  * @param maxRequests - Maximum requests allowed in window
  * @param windowMs - Time window in milliseconds
  */
-export function rateLimit(key: string, maxRequests: number, windowMs: number): RateLimitResult {
-  const now = Date.now();
-  const record = rateLimitStore.get(key);
+export async function rateLimit(key: string, maxRequests: number, windowMs: number): Promise<RateLimitResult> {
+  const windowSeconds = Math.ceil(windowMs / 1000);
 
-  // If no record or window expired, create new
-  if (!record || record.resetAt < now) {
-    const resetAt = now + windowMs;
-    rateLimitStore.set(key, { count: 1, resetAt });
+  try {
+    const result = await redisCheckRateLimit(key, maxRequests, windowSeconds);
+    const resetAt = result.resetAt.getTime();
+    const now = Date.now();
+
+    return {
+      success: result.allowed,
+      remaining: result.remaining,
+      resetAt,
+      retryAfterSeconds: result.allowed ? 0 : Math.ceil((resetAt - now) / 1000),
+    };
+  } catch {
+    // If Redis is unavailable, allow the request (fail-open)
     return {
       success: true,
-      remaining: maxRequests - 1,
-      resetAt,
+      remaining: maxRequests,
+      resetAt: Date.now() + windowMs,
       retryAfterSeconds: 0,
     };
   }
-
-  // Increment count
-  record.count += 1;
-
-  // Check if exceeded
-  if (record.count > maxRequests) {
-    const retryAfterSeconds = Math.ceil((record.resetAt - now) / 1000);
-    return {
-      success: false,
-      remaining: 0,
-      resetAt: record.resetAt,
-      retryAfterSeconds,
-    };
-  }
-
-  return {
-    success: true,
-    remaining: maxRequests - record.count,
-    resetAt: record.resetAt,
-    retryAfterSeconds: 0,
-  };
-}
-
-/**
- * Reset rate limit for a key (e.g., after successful action)
- */
-export function resetRateLimit(key: string): void {
-  rateLimitStore.delete(key);
 }
 
 /**

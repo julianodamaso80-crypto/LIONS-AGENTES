@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryAll } from '@/lib/db';
 
 /**
  * GET /api/admin/conversation-logs
@@ -25,22 +18,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('company_id');
 
-    // Build query
-    let query = supabaseAdmin
-      .from('conversation_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
+    let logs;
     if (companyId && companyId !== 'all') {
-      query = query.eq('company_id', companyId);
-    }
-
-    const { data: logs, error } = await query;
-
-    if (error) {
-      console.error('[CONVERSATION LOGS API] Error:', error);
-      return NextResponse.json({ error: 'Error fetching logs' }, { status: 500 });
+      logs = await queryAll(
+        'SELECT * FROM conversation_logs WHERE company_id = $1 ORDER BY created_at DESC LIMIT 100',
+        [companyId],
+      );
+    } else {
+      logs = await queryAll(
+        'SELECT * FROM conversation_logs ORDER BY created_at DESC LIMIT 100',
+      );
     }
 
     return NextResponse.json({ logs: logs || [] });

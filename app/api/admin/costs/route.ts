@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { rpc } from '@/lib/db';
 
 /**
  * GET /api/admin/costs
@@ -31,12 +24,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch aggregated report
-    const { data: reportData, error: reportError } = await supabaseAdmin.rpc(
-      'get_token_usage_report',
-      { start_date: start, end_date: end },
-    );
-
-    if (reportError) {
+    let reportData;
+    try {
+      reportData = await rpc('get_token_usage_report', { start_date: start, end_date: end });
+    } catch (reportError: any) {
       console.error('[ADMIN COSTS] Report RPC error:', reportError);
       return NextResponse.json(
         {
@@ -49,12 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch company totals
-    const { data: companyData, error: companyError } = await supabaseAdmin.rpc(
-      'get_token_usage_by_company',
-      { start_date: start, end_date: end },
-    );
-
-    if (companyError) {
+    let companyData;
+    try {
+      companyData = await rpc('get_token_usage_by_company', { start_date: start, end_date: end });
+    } catch (companyError) {
       console.error('[ADMIN COSTS] Company RPC error:', companyError);
     }
 

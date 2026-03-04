@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { queryAll, insertOne, updateOne } from '@/lib/db';
 
 /**
  * POST /api/messages
@@ -22,15 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // VALIDATE INPUT
     // =============================================
     const body = await request.json();
@@ -47,29 +38,22 @@ export async function POST(request: NextRequest) {
     // =============================================
     // CREATE MESSAGE
     // =============================================
-    const { data, error } = await supabaseAdmin
-      .from('messages')
-      .insert({
-        conversation_id,
-        role,
-        content,
-        type: type || 'text',
-        audio_url: audio_url || metadata?.audio_url || null,
-        image_url: image_url || metadata?.image_url || null,
-      })
-      .select()
-      .single();
+    const data = await insertOne('messages', {
+      conversation_id,
+      role,
+      content,
+      type: type || 'text',
+      audio_url: audio_url || metadata?.audio_url || null,
+      image_url: image_url || metadata?.image_url || null,
+    });
 
-    if (error) {
-      console.error('[MESSAGES API] Error creating message:', error);
+    if (!data) {
+      console.error('[MESSAGES API] Error creating message');
       return NextResponse.json({ error: 'Erro ao criar mensagem' }, { status: 500 });
     }
 
     // Update conversation updated_at
-    await supabaseAdmin
-      .from('conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', conversation_id);
+    await updateOne('conversations', { updated_at: new Date().toISOString() }, { id: conversation_id });
 
     return NextResponse.json({ message: data }, { status: 201 });
   } catch (error: any) {
@@ -98,15 +82,6 @@ export async function GET(request: NextRequest) {
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // GET CONVERSATION ID FROM QUERY
     // =============================================
     const { searchParams } = new URL(request.url);
@@ -122,27 +97,21 @@ export async function GET(request: NextRequest) {
     // =============================================
     // console.log('[MESSAGES API] Fetching messages for conversation:', conversationId);
 
-    const { data, error } = await supabaseAdmin
-      .from('messages')
-      .select(
-        `
-                *,
-                sender:sender_user_id (
-                    first_name,
-                    last_name,
-                    avatar_url
-                )
-            `,
-      )
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+    const data = await queryAll(
+      `SELECT m.*,
+              json_build_object(
+                'first_name', u.first_name,
+                'last_name', u.last_name,
+                'avatar_url', u.avatar_url
+              ) AS sender
+       FROM messages m
+       LEFT JOIN users_v2 u ON u.id = m.sender_user_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC`,
+      [conversationId],
+    );
 
-    console.log('[MESSAGES API] Result:', { count: data?.length, error: error?.message });
-
-    if (error) {
-      console.error('[MESSAGES API] Error fetching messages:', error);
-      return NextResponse.json({ error: 'Erro ao buscar mensagens' }, { status: 500 });
-    }
+    console.log('[MESSAGES API] Result:', { count: data?.length, error: null });
 
     return NextResponse.json({ messages: data || [] });
   } catch (error: any) {

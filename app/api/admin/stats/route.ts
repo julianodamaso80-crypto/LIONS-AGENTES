@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { queryAll, queryOne } from '@/lib/db';
 
 /**
  * GET /api/admin/stats
@@ -21,75 +21,65 @@ export async function GET(request: NextRequest) {
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // FETCH STATISTICS
     // =============================================
     const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const [
-      companiesResult,
-      usersResult,
-      logsResult,
-      failedLoginsResult,
-      errorsResult,
-      subscriptionsResult,
+      companies,
+      users,
+      logsCount,
+      failedLoginsCount,
+      errorsCount,
+      subscriptions,
     ] = await Promise.all([
-      supabaseAdmin.from('companies').select('status, monthly_fee'),
-      supabaseAdmin.from('users_v2').select('status'),
-      supabaseAdmin
-        .from('system_logs')
-        .select('id', { count: 'exact', head: true })
-        .gte('timestamp', last24h),
-      supabaseAdmin
-        .from('system_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('action_type', 'LOGIN_FAILED')
-        .gte('timestamp', last24h),
-      supabaseAdmin
-        .from('system_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'error')
-        .gte('timestamp', last24h),
+      queryAll('SELECT status, monthly_fee FROM companies'),
+      queryAll('SELECT status FROM users_v2'),
+      queryOne<{ count: number }>(
+        'SELECT COUNT(*)::int as count FROM system_logs WHERE timestamp >= $1',
+        [last24h]
+      ),
+      queryOne<{ count: number }>(
+        "SELECT COUNT(*)::int as count FROM system_logs WHERE action_type = 'LOGIN_FAILED' AND timestamp >= $1",
+        [last24h]
+      ),
+      queryOne<{ count: number }>(
+        "SELECT COUNT(*)::int as count FROM system_logs WHERE status = 'error' AND timestamp >= $1",
+        [last24h]
+      ),
       // Buscar subscriptions ativas com dados do plano
-      supabaseAdmin.from('subscriptions').select('id, plans(price_brl)').eq('status', 'active'),
+      queryAll(
+        `SELECT s.id, p.price_brl
+         FROM subscriptions s
+         LEFT JOIN plans p ON p.id = s.plan_id
+         WHERE s.status = 'active'`
+      ),
     ]);
 
     // =============================================
     // CALCULATE STATS
     // =============================================
-    const companies = companiesResult.data || [];
-    const users = usersResult.data || [];
-    const subscriptions = subscriptionsResult.data || [];
 
     // MRR = soma dos price_brl de todas as subscriptions ativas
-    const mrr = subscriptions.reduce((sum, sub) => {
-      const plan = sub.plans as any;
-      const price = parseFloat(plan?.price_brl || '0');
+    const mrr = (subscriptions || []).reduce((sum, sub) => {
+      const price = parseFloat(sub.price_brl || '0');
       return sum + price;
     }, 0);
 
     const stats = {
-      totalCompanies: companies.length,
-      activeCompanies: companies.filter((c) => c.status === 'active').length,
-      suspendedCompanies: companies.filter((c) => c.status === 'suspended').length,
+      totalCompanies: (companies || []).length,
+      activeCompanies: (companies || []).filter((c) => c.status === 'active').length,
+      suspendedCompanies: (companies || []).filter((c) => c.status === 'suspended').length,
       mrr: mrr,
-      totalUsers: users.length,
-      pendingUsers: users.filter((u) => u.status === 'pending').length,
-      activeUsers: users.filter((u) => u.status === 'active').length,
-      suspendedUsers: users.filter((u) => u.status === 'suspended').length,
-      logsLast24h: logsResult.count || 0,
-      failedLoginsLast24h: failedLoginsResult.count || 0,
-      errorsLast24h: errorsResult.count || 0,
+      totalUsers: (users || []).length,
+      pendingUsers: (users || []).filter((u) => u.status === 'pending').length,
+      activeUsers: (users || []).filter((u) => u.status === 'active').length,
+      suspendedUsers: (users || []).filter((u) => u.status === 'suspended').length,
+      logsLast24h: logsCount?.count || 0,
+      failedLoginsLast24h: failedLoginsCount?.count || 0,
+      errorsLast24h: errorsCount?.count || 0,
       // Adicionar contagem de subscriptions ativas
-      activeSubscriptions: subscriptions.length,
+      activeSubscriptions: (subscriptions || []).length,
     };
 
     return NextResponse.json(stats);

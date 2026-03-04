@@ -33,7 +33,6 @@ import {
   Copy,
   Bot,
 } from 'lucide-react';
-import { logSystemAction } from '@/lib/logger';
 import type { Company } from '@/lib/types';
 import { DocumentManagementModal } from '@/components/admin/DocumentManagementModal';
 
@@ -103,27 +102,9 @@ export default function AdminCompaniesPage() {
 
       if (!response.ok) throw new Error('Failed to update company');
 
-      await logSystemAction({
-        companyId,
-        actionType: newStatus === 'active' ? 'COMPANY_ACTIVATED' : 'COMPANY_SUSPENDED',
-        resourceType: 'company',
-        resourceId: companyId,
-        details: { companyName: company?.company_name, newStatus },
-        status: 'success',
-      });
-
       await loadCompanies();
     } catch (error) {
       console.error('Error updating company:', error);
-      await logSystemAction({
-        companyId,
-        actionType: 'COMPANY_UPDATED',
-        resourceType: 'company',
-        resourceId: companyId,
-        details: { error: String(error), newStatus },
-        status: 'error',
-        errorMessage: 'Erro ao atualizar empresa',
-      });
     } finally {
       setUpdating(null);
     }
@@ -190,17 +171,6 @@ export default function AdminCompaniesPage() {
 
       setInviteLink(data.inviteLink);
 
-      await logSystemAction({
-        companyId: inviteCompany.id,
-        actionType: 'INVITE_GENERATED',
-        resourceType: 'invite',
-        details: {
-          role: 'admin_company',
-          companyName: inviteCompany.company_name,
-          email: adminInviteEmail,
-        },
-        status: 'success',
-      });
     } catch (error: any) {
       console.error('Error generating invite:', error);
       alert(error.message || 'Falha ao gerar convite');
@@ -272,25 +242,10 @@ export default function AdminCompaniesPage() {
       if (!response.ok) throw new Error('Failed to create company');
       const result = await response.json();
 
-      await logSystemAction({
-        companyId: result.company?.id,
-        actionType: 'COMPANY_CREATED',
-        resourceType: 'company',
-        resourceId: result.company?.id,
-        details: { companyName: formData.company_name },
-        status: 'success',
-      });
-
       closeDialog();
       await loadCompanies();
     } catch (error) {
       console.error('Error creating company:', error);
-      await logSystemAction({
-        actionType: 'COMPANY_CREATED',
-        details: { error: String(error), companyName: formData.company_name },
-        status: 'error',
-        errorMessage: 'Erro ao criar empresa',
-      });
       alert('Erro ao criar empresa');
     } finally {
       setCreating(false);
@@ -336,30 +291,12 @@ export default function AdminCompaniesPage() {
         throw new Error(data.error || 'Failed to update');
       }
 
-      await logSystemAction({
-        companyId: editingCompany.id,
-        actionType: 'COMPANY_UPDATED',
-        resourceType: 'company',
-        resourceId: editingCompany.id,
-        details: { companyName: formData.company_name },
-        status: 'success',
-      });
-
       closeDialog();
       await loadCompanies();
     } catch (error: any) {
       console.error('Error updating company:', error);
       alert(`Erro ao atualizar empresa: ${error.message || 'Erro desconhecido'}`);
 
-      await logSystemAction({
-        companyId: editingCompany.id,
-        actionType: 'COMPANY_UPDATED',
-        resourceType: 'company',
-        resourceId: editingCompany.id,
-        details: { error: String(error) },
-        status: 'error',
-        errorMessage: 'Erro ao atualizar empresa',
-      });
     } finally {
       setCreating(false);
     }

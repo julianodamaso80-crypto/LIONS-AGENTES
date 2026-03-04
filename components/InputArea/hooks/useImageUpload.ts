@@ -13,7 +13,7 @@ interface UseImageUploadReturn {
   handlePaste: (event: React.ClipboardEvent) => void;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   removePastedImage: () => void;
-  uploadImageToSupabase: (file: File) => Promise<string | null>;
+  uploadImage: (file: File) => Promise<string | null>;
 }
 
 export function useImageUpload({ companyId }: UseImageUploadProps): UseImageUploadReturn {
@@ -56,7 +56,7 @@ export function useImageUpload({ companyId }: UseImageUploadProps): UseImageUplo
     }
   }, []);
 
-  const uploadImageToSupabase = useCallback(
+  const uploadImage = useCallback(
     async (file: File): Promise<string | null> => {
       if (!companyId) {
         console.error('[VISION] companyId required for upload');
@@ -100,6 +100,6 @@ export function useImageUpload({ companyId }: UseImageUploadProps): UseImageUplo
     handlePaste,
     handleFileSelect,
     removePastedImage,
-    uploadImageToSupabase,
+    uploadImage,
   };
 }

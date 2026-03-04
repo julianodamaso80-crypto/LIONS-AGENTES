@@ -36,7 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { supabase } from '@/lib/supabase'; // KEPT: Only for Realtime subscriptions
+// Supabase Realtime removed - using polling instead
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { toast } from 'sonner';
 import { Message } from '@/lib/types';
@@ -231,28 +231,12 @@ export default function AdminConversationsPage() {
 
     fetchConversations();
 
-    const channel = supabase
-      .channel('admin-inbox')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-          filter: `company_id=eq.${companyId}`,
-        },
-        (payload) => {
-          fetchConversations(true);
-        },
-      )
-      .subscribe();
-
+    // Poll for new conversations every 5 seconds
     const interval = setInterval(() => {
       fetchConversations(true);
     }, 5000);
 
     return () => {
-      supabase.removeChannel(channel);
       clearInterval(interval);
     };
   }, [companyId]);
@@ -296,56 +280,24 @@ export default function AdminConversationsPage() {
   useEffect(() => {
     if (!selectedId) return;
 
-    const channel = supabase
-      .channel(`admin-messages:${selectedId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${selectedId}`,
-        },
-        async (payload) => {
-          const newMessage = payload.new as Message;
-
-          // 🔥 FIX: Se mensagem tem sender_user_id, buscar dados do sender
-          // Realtime não traz JOIN, então precisamos enriquecer manualmente
-          if (newMessage.sender_user_id && !newMessage.sender) {
-            try {
-              const res = await fetch(`/api/users/${newMessage.sender_user_id}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.user) {
-                  newMessage.sender = {
-                    first_name: data.user.first_name,
-                    last_name: data.user.last_name,
-                    avatar_url: data.user.avatar_url,
-                  };
-                }
-              }
-            } catch {
-              // Fallback: usa dados do admin logado
-              newMessage.sender = {
-                first_name: adminName,
-                last_name: '',
-                avatar_url: adminAvatar,
-              };
-            }
-          }
-
-          // Evita duplicar mensagem que já existe no state
-          setMessages((prev) => {
-            const exists = prev.some((m) => m.id === newMessage.id);
-            if (exists) return prev;
-            return [...prev, newMessage];
-          });
-        },
-      )
-      .subscribe();
+    // Poll for new messages every 3 seconds
+    const pollMessages = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/messages?conversation_id=${selectedId}`);
+        if (!response.ok) return;
+        const result = await response.json();
+        const newMessages = result.messages || [];
+        setMessages((prev) => {
+          if (newMessages.length !== prev.length) return newMessages;
+          return prev;
+        });
+      } catch {
+        // Silent fail for polling
+      }
+    }, 3000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(pollMessages);
     };
   }, [selectedId, adminName, adminAvatar]);
 
@@ -533,18 +485,15 @@ export default function AdminConversationsPage() {
 
     setIsUploadingMedia(true);
     try {
-      const timestamp = Date.now();
-      const filename = `${timestamp}_${file.name}`;
-      const path = `admin/${selectedId}/${filename}`;
+      // Upload via API route (S3/MinIO)
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('bucket', 'chat-media');
 
-      // Storage upload (still uses anon client, OK for public buckets)
-      const { error: uploadError } = await supabase.storage.from('chat-media').upload(path, file);
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFormData });
+      if (!uploadRes.ok) throw new Error('Upload failed');
 
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('chat-media').getPublicUrl(path);
+      const { publicUrl } = await uploadRes.json();
 
       // Inserir mensagem via API (bypassa RLS)
       const response = await fetch('/api/admin/conversations/messages', {
@@ -612,20 +561,15 @@ export default function AdminConversationsPage() {
 
     setIsUploadingMedia(true);
     try {
-      const timestamp = Date.now();
-      const filename = `${timestamp}_audio.webm`;
-      const path = `admin/${selectedId}/${filename}`;
+      // Upload via API route (S3/MinIO)
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', new File([audioBlob], `${Date.now()}_audio.webm`, { type: 'audio/webm' }));
+      uploadFormData.append('bucket', 'voice-messages');
 
-      // Storage upload (still uses anon client, OK for public buckets)
-      const { error: uploadError } = await supabase.storage
-        .from('voice-messages')
-        .upload(path, audioBlob);
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: uploadFormData });
+      if (!uploadRes.ok) throw new Error('Upload failed');
 
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('voice-messages').getPublicUrl(path);
+      const { publicUrl } = await uploadRes.json();
 
       // Inserir mensagem via API (bypassa RLS)
       const response = await fetch('/api/admin/conversations/messages', {

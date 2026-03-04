@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { createUser, SignupData } from '@/lib/auth';
 import { createSession } from '@/lib/session';
 import { logSystemAction, getClientInfo } from '@/lib/logger';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 export async function POST(request: NextRequest) {
   const { ipAddress, userAgent } = getClientInfo(request);
@@ -23,15 +16,12 @@ export async function POST(request: NextRequest) {
     // Se tem invite token, validar
     if (inviteToken) {
 
-      const { data: invite, error: inviteError } = await supabaseAdmin
-        .from('invites')
-        .select(
-          'id, company_id, role, is_owner_invite, email, name, max_uses, current_uses, expires_at',
-        )
-        .eq('token', inviteToken)
-        .single();
+      const invite = await queryOne(
+        'SELECT id, company_id, role, is_owner_invite, email, name, max_uses, current_uses, expires_at FROM invites WHERE token = $1',
+        [inviteToken],
+      );
 
-      if (inviteError || !invite) {
+      if (!invite) {
         return NextResponse.json({ error: 'Token de convite inválido' }, { status: 404 });
       }
 
@@ -135,10 +125,7 @@ export async function POST(request: NextRequest) {
 
     // Se usou invite, incrementar contador
     if (inviteData) {
-      await supabaseAdmin
-        .from('invites')
-        .update({ current_uses: inviteData.current_uses + 1 })
-        .eq('id', inviteData.id);
+      await updateOne('invites', { current_uses: inviteData.current_uses + 1 }, { id: inviteData.id });
     }
 
     await logSystemAction({

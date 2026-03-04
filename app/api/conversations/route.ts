@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, insertOne, countWhere } from '@/lib/db';
 import { sessionOptions, SessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
@@ -27,15 +27,6 @@ export async function POST(request: NextRequest) {
     const userId = session.userId;
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // VALIDATE INPUT
     // =============================================
     const body = await request.json();
@@ -44,34 +35,29 @@ export async function POST(request: NextRequest) {
     // =============================================
     // GET USER'S COMPANY
     // =============================================
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', userId)
-      .single();
+    const userData = await queryOne<{ company_id: string }>(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [userId],
+    );
 
-    if (userError || !userData?.company_id) {
+    if (!userData?.company_id) {
       return NextResponse.json({ error: 'Empresa do usuário não encontrada' }, { status: 400 });
     }
 
     // =============================================
     // CREATE CONVERSATION
     // =============================================
-    const { data, error } = await supabaseAdmin
-      .from('conversations')
-      .insert({
-        user_id: userId,
-        company_id: userData.company_id,
-        agent_id: agent_id || null,
-        session_id: session_id || null,
-        title: title || 'Nova Conversa',
-        status: 'active',
-      })
-      .select()
-      .single();
+    const data = await insertOne('conversations', {
+      user_id: userId,
+      company_id: userData.company_id,
+      agent_id: agent_id || null,
+      session_id: session_id || null,
+      title: title || 'Nova Conversa',
+      status: 'active',
+    });
 
-    if (error) {
-      console.error('[CONVERSATIONS API] Error creating conversation:', error);
+    if (!data) {
+      console.error('[CONVERSATIONS API] Error creating conversation');
       return NextResponse.json({ error: 'Erro ao criar conversa' }, { status: 500 });
     }
 
@@ -103,15 +89,6 @@ export async function GET(request: NextRequest) {
     const userId = session.userId;
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // GET QUERY PARAMS
     // =============================================
     const { searchParams } = new URL(request.url);
@@ -122,37 +99,33 @@ export async function GET(request: NextRequest) {
     // =============================================
     if (sessionId) {
       // Fetch specific conversation by session_id with messages
-      const { data: conversation, error } = await supabaseAdmin
-        .from('conversations')
-        .select('id, agent_id, session_id, status, title, created_at, updated_at')
-        .eq('session_id', sessionId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('[CONVERSATIONS API] Error fetching conversation:', error);
-        return NextResponse.json({ error: 'Erro ao buscar conversa' }, { status: 500 });
-      }
+      const conversation = await queryOne(
+        'SELECT id, agent_id, session_id, status, title, created_at, updated_at FROM conversations WHERE session_id = $1 AND user_id = $2',
+        [sessionId, userId],
+      );
 
       if (!conversation) {
         return NextResponse.json({ conversation: null, messages: [] });
       }
 
       // Fetch messages for this conversation
-      const { data: messages, error: messagesError } = await supabaseAdmin
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true });
+      try {
+        const messages = await queryAll(
+          'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+          [conversation.id],
+        );
 
-      if (messagesError) {
+        return NextResponse.json({
+          conversation,
+          messages: messages || [],
+        });
+      } catch (messagesError) {
         console.error('[CONVERSATIONS API] Error fetching messages:', messagesError);
+        return NextResponse.json({
+          conversation,
+          messages: [],
+        });
       }
-
-      return NextResponse.json({
-        conversation,
-        messages: messages || [],
-      });
     }
 
     // Get limit from query params (default 50)
@@ -161,27 +134,23 @@ export async function GET(request: NextRequest) {
     const includeCounts = searchParams.get('include_counts') === 'true';
 
     // Fetch all conversations for user with agent info
-    const { data, error } = await supabaseAdmin
-      .from('conversations')
-      .select('*, agents(name)')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(limit);
+    const data = await queryAll(
+      'SELECT c.*, a.name as agent_name FROM conversations c LEFT JOIN agents a ON a.id = c.agent_id WHERE c.user_id = $1 ORDER BY c.updated_at DESC LIMIT $2',
+      [userId, limit],
+    );
 
-    if (error) {
-      console.error('[CONVERSATIONS API] Error fetching conversations:', error);
-      return NextResponse.json({ error: 'Erro ao buscar conversas' }, { status: 500 });
-    }
+    // Transform to match previous format (agents nested object)
+    const conversations = (data || []).map((row: any) => {
+      const { agent_name, ...rest } = row;
+      return { ...rest, agents: agent_name ? { name: agent_name } : null };
+    });
 
     // Add message counts if requested
-    let conversationsWithCounts = data || [];
-    if (includeCounts && data) {
+    let conversationsWithCounts = conversations;
+    if (includeCounts && conversations.length > 0) {
       conversationsWithCounts = await Promise.all(
-        data.map(async (conv) => {
-          const { count } = await supabaseAdmin
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id);
+        conversations.map(async (conv: any) => {
+          const count = await countWhere('messages', { conversation_id: conv.id });
           return { ...conv, message_count: count || 0 };
         }),
       );

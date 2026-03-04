@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryAll } from '@/lib/db';
 
 /**
  * GET /api/admin/conversation-logs/data
@@ -23,20 +16,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all related data
-    const [companiesResult, agentsResult, usersResult] = await Promise.all([
-      supabaseAdmin.from('companies').select('id, company_name').order('company_name'),
-      supabaseAdmin.from('agents').select('id, name, company_id'),
-      supabaseAdmin.from('users_v2').select('id, email, first_name, last_name'),
+    const [companies, agents, users] = await Promise.all([
+      queryAll('SELECT id, company_name FROM companies ORDER BY company_name'),
+      queryAll('SELECT id, name, company_id FROM agents'),
+      queryAll('SELECT id, email, first_name, last_name FROM users_v2'),
     ]);
 
-    if (companiesResult.error) {
-      console.error('[CONV LOGS DATA] Companies error:', companiesResult.error);
-    }
-
     return NextResponse.json({
-      companies: companiesResult.data || [],
-      agents: agentsResult.data || [],
-      users: usersResult.data || [],
+      companies: companies || [],
+      agents: agents || [],
+      users: users || [],
     });
   } catch (error: any) {
     console.error('[CONV LOGS DATA] Error:', error);

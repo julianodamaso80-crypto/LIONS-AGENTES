@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth';
 import { adminSessionOptions, AdminSessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/admin/change-password
@@ -58,19 +51,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[ADMIN CHANGE PASSWORD] ✅ Using Service Role client (bypasses RLS)');
+    console.log('[ADMIN CHANGE PASSWORD] ✅ Using direct PostgreSQL (bypasses RLS)');
 
     // ========================================
     // FETCH ADMIN FROM admin_users (EXCLUSIVE)
     // ========================================
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('admin_users')
-      .select('id, email, password_hash')
-      .eq('id', adminId)
-      .single();
+    const admin = await queryOne(
+      'SELECT id, email, password_hash FROM admin_users WHERE id = $1',
+      [adminId]
+    );
 
-    if (adminError || !admin) {
-      console.error('[ADMIN CHANGE PASSWORD] Admin not found in admin_users:', adminError);
+    if (!admin) {
+      console.error('[ADMIN CHANGE PASSWORD] Admin not found in admin_users');
       return NextResponse.json({ error: 'Administrador não encontrado' }, { status: 404 });
     }
 
@@ -100,21 +92,15 @@ export async function POST(request: NextRequest) {
       const newHash = await hashPassword(newPassword);
       console.log('[ADMIN CHANGE PASSWORD] New hash generated, updating database...');
 
-      const { data: updatedData, error: updateError } = await supabaseAdmin
-        .from('admin_users')
-        .update({ password_hash: newHash })
-        .eq('id', adminId)
-        .select('id, email');
-
-      if (updateError) {
-        console.error('[ADMIN CHANGE PASSWORD] ❌ Database error:', updateError);
-        return NextResponse.json({ error: 'Erro ao atualizar senha no banco' }, { status: 500 });
-      }
+      const updatedData = await queryAll(
+        'UPDATE admin_users SET password_hash = $1 WHERE id = $2 RETURNING id, email',
+        [newHash, adminId]
+      );
 
       // Verify that update actually happened
       if (!updatedData || updatedData.length === 0) {
         console.error(
-          '[ADMIN CHANGE PASSWORD] ❌ No rows updated! RLS may be blocking. AdminId:',
+          '[ADMIN CHANGE PASSWORD] ❌ No rows updated! AdminId:',
           adminId,
         );
         return NextResponse.json(

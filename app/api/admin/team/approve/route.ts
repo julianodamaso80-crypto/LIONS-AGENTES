@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { adminSessionOptions, AdminSessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/admin/team/approve
@@ -37,13 +30,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get admin user and verify they're a company admin
-    const { data: admin, error: adminError } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, company_id, role, is_owner')
-      .eq('id', adminId)
-      .single();
+    const admin = await queryOne(
+      'SELECT id, company_id, role, is_owner FROM users_v2 WHERE id = $1',
+      [adminId]
+    );
 
-    if (adminError || !admin) {
+    if (!admin) {
       return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
     }
 
@@ -53,13 +45,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user to approve and verify same company
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, company_id, status, email, first_name, role, is_owner')
-      .eq('id', userId)
-      .single();
+    const user = await queryOne(
+      'SELECT id, company_id, status, email, first_name, role, is_owner FROM users_v2 WHERE id = $1',
+      [userId]
+    );
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -81,12 +72,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user status to active
-    const { error: updateError } = await supabaseAdmin
-      .from('users_v2')
-      .update({ status: 'active' })
-      .eq('id', userId);
-
-    if (updateError) {
+    try {
+      await updateOne('users_v2', { status: 'active' }, { id: userId });
+    } catch (updateError) {
       console.error('[APPROVE USER] Error:', updateError);
       return NextResponse.json({ error: 'Failed to approve user' }, { status: 500 });
     }

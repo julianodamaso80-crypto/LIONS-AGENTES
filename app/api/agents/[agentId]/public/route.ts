@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne } from '@/lib/db';
 
 /**
  * GET /api/agents/[agentId]/public
@@ -30,13 +24,19 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid agent ID format' }, { status: 400 });
     }
 
-    const { data: agent, error } = await supabaseAdmin
-      .from('agents')
-      .select('id, company_id, name, avatar_url, widget_config, is_active')
-      .eq('id', agentId)
-      .single();
+    const agent = await queryOne<{
+      id: string;
+      company_id: string;
+      name: string;
+      avatar_url: string | null;
+      widget_config: any;
+      is_active: boolean;
+    }>(
+      'SELECT id, company_id, name, avatar_url, widget_config, is_active FROM agents WHERE id = $1',
+      [agentId],
+    );
 
-    if (error || !agent) {
+    if (!agent) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
     }
 

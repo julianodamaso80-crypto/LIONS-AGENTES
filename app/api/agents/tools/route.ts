@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, insertOne, updateOne } from '@/lib/db';
 import {
   sessionOptions,
   adminSessionOptions,
@@ -36,20 +36,13 @@ async function getAuthenticatedSession() {
   if (userSession.userId) {
     const userId = userSession.userId;
 
-    // Create Service Role client to get user's company
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
+    // Get user's company
+    const userData = await queryOne<{ company_id: string }>(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [userId],
     );
 
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !userData?.company_id) {
+    if (!userData?.company_id) {
       return { error: 'Empresa não encontrada', status: 404 };
     }
 
@@ -64,21 +57,9 @@ async function getAuthenticatedSession() {
 }
 
 /**
- * Helper: Create Supabase Admin client
- */
-function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  );
-}
-
-/**
  * Helper: Validate that agent belongs to user's company (only for non-master admins)
  */
 async function validateAgentOwnership(
-  supabaseAdmin: any,
   agentId: string,
   companyId: string | null,
   isMasterAdmin: boolean,
@@ -92,13 +73,12 @@ async function validateAgentOwnership(
     return { valid: false, error: 'Company ID não encontrado', status: 400 };
   }
 
-  const { data: agent, error } = await supabaseAdmin
-    .from('agents')
-    .select('id, company_id')
-    .eq('id', agentId)
-    .single();
+  const agent = await queryOne<{ id: string; company_id: string }>(
+    'SELECT id, company_id FROM agents WHERE id = $1',
+    [agentId],
+  );
 
-  if (error || !agent) {
+  if (!agent) {
     return { valid: false, error: 'Agente não encontrado', status: 404 };
   }
 
@@ -127,7 +107,6 @@ export async function GET(request: NextRequest) {
     }
 
     const { isMasterAdmin, companyId } = auth;
-    const supabaseAdmin = getSupabaseAdmin();
 
     // =============================================
     // VALIDATE AGENT ID
@@ -143,7 +122,6 @@ export async function GET(request: NextRequest) {
     // VALIDATE AGENT OWNERSHIP (non-master only)
     // =============================================
     const ownership = await validateAgentOwnership(
-      supabaseAdmin,
       agentId,
       companyId,
       isMasterAdmin,
@@ -155,17 +133,10 @@ export async function GET(request: NextRequest) {
     // =============================================
     // FETCH TOOLS
     // =============================================
-    const { data, error } = await supabaseAdmin
-      .from('agent_http_tools')
-      .select('*')
-      .eq('agent_id', agentId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('[AGENTS/TOOLS API] Error fetching tools:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const data = await queryAll(
+      'SELECT * FROM agent_http_tools WHERE agent_id = $1 AND is_active = true ORDER BY created_at DESC',
+      [agentId],
+    );
 
     return NextResponse.json(data || []);
   } catch (error: any) {
@@ -192,7 +163,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { isMasterAdmin, companyId } = auth;
-    const supabaseAdmin = getSupabaseAdmin();
 
     // =============================================
     // PARSE BODY
@@ -208,7 +178,6 @@ export async function POST(request: NextRequest) {
     // VALIDATE AGENT OWNERSHIP
     // =============================================
     const ownership = await validateAgentOwnership(
-      supabaseAdmin,
       agent_id,
       companyId,
       isMasterAdmin,
@@ -220,19 +189,15 @@ export async function POST(request: NextRequest) {
     // =============================================
     // CREATE TOOL
     // =============================================
-    const { data, error } = await supabaseAdmin
-      .from('agent_http_tools')
-      .insert({
-        ...insertData,
-        agent_id,
-        is_active: true,
-      })
-      .select()
-      .single();
+    const data = await insertOne('agent_http_tools', {
+      ...insertData,
+      agent_id,
+      is_active: true,
+    });
 
-    if (error) {
-      console.error('[AGENTS/TOOLS API] Error creating tool:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) {
+      console.error('[AGENTS/TOOLS API] Error creating tool');
+      return NextResponse.json({ error: 'Erro ao criar tool' }, { status: 500 });
     }
 
     return NextResponse.json(data);
@@ -260,7 +225,6 @@ export async function PUT(request: NextRequest) {
     }
 
     const { isMasterAdmin, companyId } = auth;
-    const supabaseAdmin = getSupabaseAdmin();
 
     // =============================================
     // PARSE BODY
@@ -275,18 +239,16 @@ export async function PUT(request: NextRequest) {
     // =============================================
     // GET TOOL AND VALIDATE OWNERSHIP
     // =============================================
-    const { data: existingTool, error: toolError } = await supabaseAdmin
-      .from('agent_http_tools')
-      .select('agent_id')
-      .eq('id', id)
-      .single();
+    const existingTool = await queryOne<{ agent_id: string }>(
+      'SELECT agent_id FROM agent_http_tools WHERE id = $1',
+      [id],
+    );
 
-    if (toolError || !existingTool) {
+    if (!existingTool) {
       return NextResponse.json({ error: 'Tool não encontrada' }, { status: 404 });
     }
 
     const ownership = await validateAgentOwnership(
-      supabaseAdmin,
       existingTool.agent_id,
       companyId,
       isMasterAdmin,
@@ -301,16 +263,18 @@ export async function PUT(request: NextRequest) {
     delete updates.created_at;
     updates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
-      .from('agent_http_tools')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    const data = await queryOne(
+      (() => {
+        const keys = Object.keys(updates);
+        const setClauses = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+        return `UPDATE agent_http_tools SET ${setClauses} WHERE id = $${keys.length + 1} RETURNING *`;
+      })(),
+      [...Object.values(updates), id],
+    );
 
-    if (error) {
-      console.error('[AGENTS/TOOLS API] Error updating tool:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) {
+      console.error('[AGENTS/TOOLS API] Error updating tool');
+      return NextResponse.json({ error: 'Erro ao atualizar tool' }, { status: 500 });
     }
 
     return NextResponse.json(data);
@@ -338,7 +302,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { isMasterAdmin, companyId } = auth;
-    const supabaseAdmin = getSupabaseAdmin();
 
     // =============================================
     // VALIDATE TOOL ID
@@ -353,18 +316,16 @@ export async function DELETE(request: NextRequest) {
     // =============================================
     // GET TOOL AND VALIDATE OWNERSHIP
     // =============================================
-    const { data: existingTool, error: toolError } = await supabaseAdmin
-      .from('agent_http_tools')
-      .select('agent_id')
-      .eq('id', id)
-      .single();
+    const existingTool = await queryOne<{ agent_id: string }>(
+      'SELECT agent_id FROM agent_http_tools WHERE id = $1',
+      [id],
+    );
 
-    if (toolError || !existingTool) {
+    if (!existingTool) {
       return NextResponse.json({ error: 'Tool não encontrada' }, { status: 404 });
     }
 
     const ownership = await validateAgentOwnership(
-      supabaseAdmin,
       existingTool.agent_id,
       companyId,
       isMasterAdmin,
@@ -376,18 +337,14 @@ export async function DELETE(request: NextRequest) {
     // =============================================
     // SOFT DELETE
     // =============================================
-    const { error } = await supabaseAdmin
-      .from('agent_http_tools')
-      .update({
+    await updateOne(
+      'agent_http_tools',
+      {
         is_active: false,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error('[AGENTS/TOOLS API] Error deleting tool:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+      },
+      { id },
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

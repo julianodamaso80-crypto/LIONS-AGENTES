@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { sessionOptions, SessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * GET /api/user/profile
@@ -36,16 +29,16 @@ export async function GET(request: NextRequest) {
 
     if (fullProfile) {
       // Return full profile for settings page
-      const { data, error } = await supabaseAdmin
-        .from('users_v2')
-        .select(
-          'first_name, last_name, email, phone, cpf, birth_date, avatar_url, companies(company_name)',
-        )
-        .eq('id', userId)
-        .single();
+      const data = await queryOne(
+        `SELECT u.first_name, u.last_name, u.email, u.phone, u.cpf, u.birth_date, u.avatar_url, c.company_name
+         FROM users_v2 u
+         LEFT JOIN companies c ON c.id = u.company_id
+         WHERE u.id = $1`,
+        [userId],
+      );
 
-      if (error) {
-        console.error('[USER PROFILE] Error:', error);
+      if (!data) {
+        console.error('[USER PROFILE] Error: user not found');
         return NextResponse.json({ error: 'Error fetching profile' }, { status: 500 });
       }
 
@@ -57,26 +50,28 @@ export async function GET(request: NextRequest) {
         cpf: data?.cpf || '',
         birth_date: data?.birth_date || '',
         avatar_url: data?.avatar_url || '',
-        companyName: (data?.companies as any)?.company_name || 'Empresa',
+        companyName: data?.company_name || 'Empresa',
       });
     }
 
     // Simple profile for sidebar
-    const { data, error } = await supabaseAdmin
-      .from('users_v2')
-      .select('first_name, last_name, email, companies(company_name)')
-      .eq('id', userId)
-      .single();
+    const data = await queryOne(
+      `SELECT u.first_name, u.last_name, u.email, c.company_name
+       FROM users_v2 u
+       LEFT JOIN companies c ON c.id = u.company_id
+       WHERE u.id = $1`,
+      [userId],
+    );
 
-    if (error) {
-      console.error('[USER PROFILE] Error:', error);
+    if (!data) {
+      console.error('[USER PROFILE] Error: user not found');
       return NextResponse.json({ error: 'Error fetching profile' }, { status: 500 });
     }
 
     return NextResponse.json({
       name: `${data?.first_name || ''} ${data?.last_name || ''}`.trim(),
       email: data?.email || '',
-      companyName: (data?.companies as any)?.company_name || 'Empresa',
+      companyName: data?.company_name || 'Empresa',
     });
   } catch (error: any) {
     console.error('[USER PROFILE] Error:', error);
@@ -103,25 +98,21 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { first_name, last_name, phone, avatar_url } = body;
 
-    const { error } = await supabaseAdmin
-      .from('users_v2')
-      .update({
+    await updateOne(
+      'users_v2',
+      {
         first_name,
         last_name,
         phone,
         avatar_url,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (error) {
-      console.error('[USER PROFILE] Update error:', error);
-      return NextResponse.json({ error: 'Error updating profile' }, { status: 500 });
-    }
+      },
+      { id: userId },
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('[USER PROFILE] Error:', error);
+    console.error('[USER PROFILE] Update error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

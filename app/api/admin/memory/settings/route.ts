@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, insertOne, query } from '@/lib/db';
 
 // Default settings
 const DEFAULT_SETTINGS = {
@@ -12,13 +12,6 @@ const DEFAULT_SETTINGS = {
   extract_user_profile: true,
   extract_session_summary: true,
 };
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * GET /api/admin/memory/settings?agentId={id}
@@ -41,25 +34,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar configuração existente por agent_id
-    const { data, error } = await supabaseAdmin
-      .from('memory_settings')
-      .select('*')
-      .eq('agent_id', agentId)
-      .single();
+    const data = await queryOne(
+      'SELECT * FROM memory_settings WHERE agent_id = $1',
+      [agentId],
+    );
 
     // Se não existir, criar default para o agente
-    if (error || !data) {
-      const { data: newData, error: insertError } = await supabaseAdmin
-        .from('memory_settings')
-        .insert({
-          agent_id: agentId,
-          ...DEFAULT_SETTINGS,
-        })
-        .select()
-        .single();
+    if (!data) {
+      const newData = await insertOne('memory_settings', {
+        agent_id: agentId,
+        ...DEFAULT_SETTINGS,
+      });
 
-      if (insertError) {
-        console.error('[Memory Settings] Error creating default:', insertError);
+      if (!newData) {
+        console.error('[Memory Settings] Error creating default settings');
         return NextResponse.json({ error: 'Failed to create default settings' }, { status: 500 });
       }
 
@@ -103,29 +91,39 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upsert (insert or update) por agent_id
-    const { data, error } = await supabaseAdmin
-      .from('memory_settings')
-      .upsert(
-        {
-          agent_id: agentId,
-          whatsapp_summarization_mode,
-          whatsapp_sliding_window_size,
-          whatsapp_message_threshold,
-          web_summarization_mode,
-          web_message_threshold,
-          extract_user_profile,
-          extract_session_summary,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'agent_id',
-        },
-      )
-      .select()
-      .single();
+    const result = await query(
+      `INSERT INTO memory_settings (
+        agent_id, whatsapp_summarization_mode, whatsapp_sliding_window_size,
+        whatsapp_message_threshold, web_summarization_mode, web_message_threshold,
+        extract_user_profile, extract_session_summary, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (agent_id) DO UPDATE SET
+        whatsapp_summarization_mode = EXCLUDED.whatsapp_summarization_mode,
+        whatsapp_sliding_window_size = EXCLUDED.whatsapp_sliding_window_size,
+        whatsapp_message_threshold = EXCLUDED.whatsapp_message_threshold,
+        web_summarization_mode = EXCLUDED.web_summarization_mode,
+        web_message_threshold = EXCLUDED.web_message_threshold,
+        extract_user_profile = EXCLUDED.extract_user_profile,
+        extract_session_summary = EXCLUDED.extract_session_summary,
+        updated_at = EXCLUDED.updated_at
+      RETURNING *`,
+      [
+        agentId,
+        whatsapp_summarization_mode,
+        whatsapp_sliding_window_size,
+        whatsapp_message_threshold,
+        web_summarization_mode,
+        web_message_threshold,
+        extract_user_profile,
+        extract_session_summary,
+        new Date().toISOString(),
+      ],
+    );
 
-    if (error) {
-      console.error('[Memory Settings] PUT error:', error);
+    const data = result.rows[0] || null;
+
+    if (!data) {
+      console.error('[Memory Settings] PUT error: no row returned');
       return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
     }
 

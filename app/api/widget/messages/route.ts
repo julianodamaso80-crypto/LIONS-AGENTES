@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll } from '@/lib/db';
 
 /**
  * GET /api/widget/messages?session_id=xxx
@@ -16,51 +16,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'session_id is required' }, { status: 400 });
     }
 
-    // Service Role Client
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
+    // Find conversation by session_id
+    const conv = await queryOne<{ id: string; status: string }>(
+      'SELECT id, status FROM conversations WHERE session_id = $1 LIMIT 1',
+      [sessionId],
     );
 
-    // Find conversation by session_id
-    const { data: conv, error: convError } = await supabaseAdmin
-      .from('conversations')
-      .select('id, status')
-      .eq('session_id', sessionId)
-      .limit(1)
-      .single();
-
-    if (convError || !conv) {
+    if (!conv) {
       // No conversation found - return empty messages
       return NextResponse.json({ messages: [], status: 'open' });
     }
 
     // Fetch messages for this conversation
-    const { data: messages, error: msgError } = await supabaseAdmin
-      .from('messages')
-      .select(
-        `
-                id,
-                role,
-                content,
-                image_url,
-                audio_url,
-                created_at,
-                sender_user_id,
-                sender:sender_user_id (
-                    first_name,
-                    last_name
-                )
-            `,
-      )
-      .eq('conversation_id', conv.id)
-      .order('created_at', { ascending: true });
-
-    if (msgError) {
-      console.error('[WIDGET MESSAGES API] Error:', msgError);
-      return NextResponse.json({ error: 'Error fetching messages' }, { status: 500 });
-    }
+    const messages = await queryAll(
+      `SELECT m.id,
+              m.role,
+              m.content,
+              m.image_url,
+              m.audio_url,
+              m.created_at,
+              m.sender_user_id,
+              json_build_object(
+                'first_name', u.first_name,
+                'last_name', u.last_name
+              ) AS sender
+       FROM messages m
+       LEFT JOIN users_v2 u ON u.id = m.sender_user_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC`,
+      [conv.id],
+    );
 
     return NextResponse.json({
       messages: messages || [],

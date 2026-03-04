@@ -42,7 +42,7 @@ export default function InputArea({
     handlePaste,
     handleFileSelect,
     removePastedImage,
-    uploadImageToSupabase,
+    uploadImage,
   } = useImageUpload({ companyId });
 
   const {
@@ -62,7 +62,7 @@ export default function InputArea({
     let imageUrl: string | undefined = undefined;
 
     if (pastedImage) {
-      imageUrl = (await uploadImageToSupabase(pastedImage.file)) || undefined;
+      imageUrl = (await uploadImage(pastedImage.file)) || undefined;
       removePastedImage();
     }
 

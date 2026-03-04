@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 import {
   sessionOptions,
   adminSessionOptions,
@@ -10,13 +10,6 @@ import {
 } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * GET /api/auth/me
@@ -44,11 +37,10 @@ export async function GET(request: NextRequest) {
         userId = adminSession.adminId;
 
         // Check if this is a master admin (from admin_users table)
-        const { data: masterCheck } = await supabaseAdmin
-          .from('admin_users')
-          .select('id')
-          .eq('id', adminSession.adminId)
-          .maybeSingle();
+        const masterCheck = await queryOne(
+          'SELECT id FROM admin_users WHERE id = $1',
+          [adminSession.adminId],
+        );
 
         isMasterAdmin = !!masterCheck;
       }
@@ -59,13 +51,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user details from database
-    const { data: user, error } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, email, first_name, last_name, company_id, role, status, is_owner, avatar_url, accepted_terms_version')
-      .eq('id', userId)
-      .single();
+    const user = await queryOne(
+      'SELECT id, email, first_name, last_name, company_id, role, status, is_owner, avatar_url, accepted_terms_version FROM users_v2 WHERE id = $1',
+      [userId],
+    );
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json({ user: null }, { status: 200 });
     }
 
@@ -74,12 +65,10 @@ export async function GET(request: NextRequest) {
     let activeTerms = null;
 
     if (!isMasterAdmin) {
-      const { data: activeDoc } = await supabaseAdmin
-        .from('legal_documents')
-        .select('id, title, content, version')
-        .eq('type', 'terms_of_use')
-        .eq('is_active', true)
-        .maybeSingle();
+      const activeDoc = await queryOne(
+        'SELECT id, title, content, version FROM legal_documents WHERE type = $1 AND is_active = $2',
+        ['terms_of_use', true],
+      );
 
       if (activeDoc && activeDoc.id !== user.accepted_terms_version) {
         termsOutdated = true;

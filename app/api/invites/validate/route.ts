@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne } from '@/lib/db';
 
 /**
  * POST /api/invites/validate
@@ -21,28 +14,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    // Buscar invite pelo token
-    const { data: invite, error: inviteError } = await supabaseAdmin
-      .from('invites')
-      .select(
-        `
-        id,
-        company_id,
-        role,
-        email,
-        name,
-        max_uses,
-        current_uses,
-        expires_at,
-        companies:company_id (
-          company_name
-        )
-      `,
-      )
-      .eq('token', token)
-      .single();
+    // Buscar invite pelo token com dados da empresa
+    const invite = await queryOne(
+      `SELECT i.id, i.company_id, i.role, i.email, i.name, i.max_uses, i.current_uses, i.expires_at,
+              c.company_name
+       FROM invites i
+       LEFT JOIN companies c ON c.id = i.company_id
+       WHERE i.token = $1`,
+      [token],
+    );
 
-    if (inviteError || !invite) {
+    if (!invite) {
       return NextResponse.json(
         { error: 'Invalid or expired invite token', valid: false },
         { status: 404 },
@@ -69,14 +51,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Token válido - retornar informações
-    const companyName = Array.isArray(invite.companies)
-      ? (invite.companies as any)[0]?.company_name
-      : (invite.companies as any)?.company_name;
-
     return NextResponse.json({
       valid: true,
       companyId: invite.company_id,
-      companyName: companyName || 'Unknown Company',
+      companyName: invite.company_name || 'Unknown Company',
       inviteId: invite.id,
       role: invite.role || 'member',
       email: invite.email || null,

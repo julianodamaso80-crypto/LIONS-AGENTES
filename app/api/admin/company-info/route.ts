@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne } from '@/lib/db';
 
 /**
  * GET /api/admin/company-info?companyId=xxx
- * Fetches company info by ID using Service Role key
+ * Fetches company info by ID
  */
 export async function GET(request: NextRequest) {
   try {
@@ -29,18 +22,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'companyId is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('companies')
-      .select('id, company_name')
-      .eq('id', companyId)
-      .single();
+    try {
+      const data = await queryOne(
+        'SELECT id, company_name FROM companies WHERE id = $1',
+        [companyId]
+      );
 
-    if (error) {
-      console.error('[ADMIN COMPANY-INFO] Error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      if (!data) {
+        return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+      }
+
+      return NextResponse.json(data);
+    } catch (dbError: any) {
+      console.error('[ADMIN COMPANY-INFO] Error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
-
-    return NextResponse.json(data);
   } catch (error: any) {
     console.error('[ADMIN COMPANY-INFO] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

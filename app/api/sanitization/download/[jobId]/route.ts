@@ -13,15 +13,9 @@ import {
     sessionOptions,
     SessionData,
 } from '@/lib/iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-);
 
 async function resolveCompanyId(frontendCompanyId?: string | null): Promise<string | null> {
     try {
@@ -35,22 +29,20 @@ async function resolveCompanyId(frontendCompanyId?: string | null): Promise<stri
                 return null;
             }
             if (adminSession.companyId) return adminSession.companyId;
-            const { data } = await supabaseAdmin
-                .from('users_v2')
-                .select('company_id')
-                .eq('id', adminSession.adminId)
-                .single();
+            const data = await queryOne<{ company_id: string }>(
+                'SELECT company_id FROM users_v2 WHERE id = $1',
+                [adminSession.adminId],
+            );
             if (data?.company_id) return data.company_id;
         }
 
         const userSession = await getIronSession<SessionData>(cookieStore, sessionOptions);
         if (userSession.userId) {
             if (userSession.companyId) return userSession.companyId;
-            const { data } = await supabaseAdmin
-                .from('users_v2')
-                .select('company_id')
-                .eq('id', userSession.userId)
-                .single();
+            const data = await queryOne<{ company_id: string }>(
+                'SELECT company_id FROM users_v2 WHERE id = $1',
+                [userSession.userId],
+            );
             if (data?.company_id) return data.company_id;
         }
 

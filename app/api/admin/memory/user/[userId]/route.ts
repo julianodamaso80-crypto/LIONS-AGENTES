@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne, queryAll, deleteWhere } from '@/lib/db';
 
 /**
  * GET /api/admin/memory/user/[userId]
@@ -32,19 +25,16 @@ export async function GET(
     }
 
     // Buscar fatos do usuário
-    const { data: userMemory, error: memoryError } = await supabaseAdmin
-      .from('user_memories')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    const userMemory = await queryOne(
+      'SELECT * FROM user_memories WHERE user_id = $1',
+      [userId],
+    );
 
     // Buscar resumos de sessão
-    const { data: sessionSummaries, error: summariesError } = await supabaseAdmin
-      .from('session_summaries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const sessionSummaries = await queryAll(
+      'SELECT * FROM session_summaries WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10',
+      [userId],
+    );
 
     return NextResponse.json({
       user_memory: userMemory || null,
@@ -80,20 +70,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    // Deletar fatos
-    const { error: memoryError } = await supabaseAdmin
-      .from('user_memories')
-      .delete()
-      .eq('user_id', userId);
-
-    // Deletar resumos
-    const { error: summariesError } = await supabaseAdmin
-      .from('session_summaries')
-      .delete()
-      .eq('user_id', userId);
-
-    if (memoryError || summariesError) {
-      console.error('[Memory User] DELETE errors:', { memoryError, summariesError });
+    // Deletar fatos e resumos
+    try {
+      await deleteWhere('user_memories', { user_id: userId });
+      await deleteWhere('session_summaries', { user_id: userId });
+    } catch (deleteError) {
+      console.error('[Memory User] DELETE errors:', deleteError);
       return NextResponse.json({ error: 'Failed to delete user memory' }, { status: 500 });
     }
 

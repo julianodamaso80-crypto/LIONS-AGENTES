@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 import { sessionOptions, SessionData } from '@/lib/iron-session';
 
 export const dynamic = 'force-dynamic';
@@ -27,34 +27,23 @@ export async function GET(request: NextRequest) {
     const userId = session.userId;
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // FETCH USER -> COMPANY DATA
     // =============================================
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('company_id')
-      .eq('id', userId)
-      .single();
+    const userData = await queryOne(
+      'SELECT company_id FROM users_v2 WHERE id = $1',
+      [userId],
+    );
 
-    if (userError || !userData?.company_id) {
+    if (!userData?.company_id) {
       return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 });
     }
 
-    const { data: companyData, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('id, allow_web_search')
-      .eq('id', userData.company_id)
-      .single();
+    const companyData = await queryOne(
+      'SELECT id, allow_web_search FROM companies WHERE id = $1',
+      [userData.company_id],
+    );
 
-    if (companyError) {
+    if (!companyData) {
       return NextResponse.json({ error: 'Erro ao buscar dados da empresa' }, { status: 500 });
     }
 

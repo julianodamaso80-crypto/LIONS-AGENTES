@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-);
+import { queryAll } from '@/lib/db';
 
 // GET - Fetch active legal documents (PUBLIC - no auth required)
 // Used by registration page to display terms content
@@ -15,23 +9,19 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type');
 
-        let query = supabaseAdmin
-            .from('legal_documents')
-            .select('id, type, title, content, version, updated_at')
-            .eq('is_active', true);
-
+        let data;
         if (type) {
             if (!['terms_of_use', 'privacy_policy'].includes(type)) {
                 return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 });
             }
-            query = query.eq('type', type);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('[LEGAL DOCS PUBLIC] Error fetching:', error.message);
-            return NextResponse.json({ error: 'Erro ao buscar documentos' }, { status: 500 });
+            data = await queryAll(
+                'SELECT id, type, title, content, version, updated_at FROM legal_documents WHERE is_active = true AND type = $1',
+                [type]
+            );
+        } else {
+            data = await queryAll(
+                'SELECT id, type, title, content, version, updated_at FROM legal_documents WHERE is_active = true'
+            );
         }
 
         // If requesting a specific type, return single document

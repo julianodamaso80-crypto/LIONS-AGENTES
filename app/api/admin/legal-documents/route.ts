@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, insertOne, query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { adminSessionOptions, AdminSessionData } from '@/lib/iron-session';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-);
 
 async function getMasterAdminSession(request: NextRequest): Promise<AdminSessionData | null> {
     try {
@@ -17,11 +11,10 @@ async function getMasterAdminSession(request: NextRequest): Promise<AdminSession
         if (session.expiresAt && new Date(session.expiresAt) < new Date()) return null;
 
         // Verify it's a master admin (exists in admin_users table)
-        const { data: admin } = await supabaseAdmin
-            .from('admin_users')
-            .select('id')
-            .eq('id', session.adminId)
-            .maybeSingle();
+        const admin = await queryOne(
+            'SELECT id FROM admin_users WHERE id = $1',
+            [session.adminId]
+        );
 
         if (!admin) return null;
         return session;
@@ -38,16 +31,9 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const { data, error } = await supabaseAdmin
-            .from('legal_documents')
-            .select('*')
-            .order('type', { ascending: true })
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('[LEGAL DOCS] Error fetching:', error.message);
-            return NextResponse.json({ error: 'Erro ao buscar documentos' }, { status: 500 });
-        }
+        const data = await queryAll(
+            'SELECT * FROM legal_documents ORDER BY type ASC, created_at DESC'
+        );
 
         return NextResponse.json({ documents: data });
     } catch (error) {
@@ -77,32 +63,27 @@ export async function POST(request: NextRequest) {
 
         // If activating this document, deactivate others of the same type
         if (is_active) {
-            await supabaseAdmin
-                .from('legal_documents')
-                .update({ is_active: false })
-                .eq('type', type)
-                .eq('is_active', true);
+            await query(
+                'UPDATE legal_documents SET is_active = false WHERE type = $1 AND is_active = true',
+                [type]
+            );
         }
 
-        const { data, error } = await supabaseAdmin
-            .from('legal_documents')
-            .insert({
+        try {
+            const data = await insertOne('legal_documents', {
                 type,
                 title,
                 content,
                 version,
                 is_active: is_active || false,
                 created_by: session.adminId,
-            })
-            .select()
-            .single();
+            });
 
-        if (error) {
-            console.error('[LEGAL DOCS] Error creating:', error.message);
+            return NextResponse.json({ document: data }, { status: 201 });
+        } catch (dbError: any) {
+            console.error('[LEGAL DOCS] Error creating:', dbError.message);
             return NextResponse.json({ error: 'Erro ao criar documento' }, { status: 500 });
         }
-
-        return NextResponse.json({ document: data }, { status: 201 });
     } catch (error) {
         console.error('[LEGAL DOCS] Unexpected error:', error);
         return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

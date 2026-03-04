@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, queryAll, query } from '@/lib/db';
 import {
   sessionOptions,
   adminSessionOptions,
@@ -38,15 +38,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const userId = userSession.userId || null;
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // VALIDATE INPUT
     // =============================================
     const body = await request.json();
@@ -63,17 +54,36 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // =============================================
     // UPDATE CONVERSATION
     // =============================================
-    let query = supabaseAdmin.from('conversations').update(updateData).eq('id', conversationId);
+    // Build SET clause dynamically
+    const setClauses: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updateData)) {
+      setClauses.push(`${key} = $${paramIndex}`);
+      values.push(value);
+      paramIndex++;
+    }
+
+    // Build WHERE clause
+    let whereClause = `id = $${paramIndex}`;
+    values.push(conversationId);
+    paramIndex++;
 
     // If it's a user (not admin), ensure they own the conversation
     if (userId && !hasAdminSession) {
-      query = query.eq('user_id', userId);
+      whereClause += ` AND user_id = $${paramIndex}`;
+      values.push(userId);
+      paramIndex++;
     }
 
-    const { data, error } = await query.select().single();
+    const data = await queryOne(
+      `UPDATE conversations SET ${setClauses.join(', ')} WHERE ${whereClause} RETURNING *`,
+      values,
+    );
 
-    if (error) {
-      console.error('[CONVERSATIONS API] Error updating:', error);
+    if (!data) {
+      console.error('[CONVERSATIONS API] Error updating conversation');
       return NextResponse.json({ error: 'Erro ao atualizar conversa' }, { status: 500 });
     }
 
@@ -106,29 +116,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // =============================================
-    // SERVICE ROLE CLIENT
-    // =============================================
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } },
-    );
-
-    // =============================================
     // FETCH CONVERSATION WITH MESSAGES
     // =============================================
-    const { data: conversation, error } = await supabaseAdmin
-      .from('conversations')
-      .select('*, messages(*)')
-      .eq('id', conversationId)
-      .single();
+    const conversation = await queryOne(
+      'SELECT * FROM conversations WHERE id = $1',
+      [conversationId],
+    );
 
-    if (error) {
-      console.error('[CONVERSATIONS API] Error fetching:', error);
+    if (!conversation) {
+      console.error('[CONVERSATIONS API] Error fetching conversation');
       return NextResponse.json({ error: 'Erro ao buscar conversa' }, { status: 500 });
     }
 
-    return NextResponse.json({ conversation });
+    // Fetch messages separately
+    const messages = await queryAll(
+      'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+      [conversationId],
+    );
+
+    return NextResponse.json({ conversation: { ...conversation, messages: messages || [] } });
   } catch (error: any) {
     console.error('[CONVERSATIONS API] Error:', error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });

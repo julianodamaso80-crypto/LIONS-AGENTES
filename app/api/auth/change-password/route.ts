@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/auth/change-password
@@ -26,19 +19,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
     }
 
-    console.log('[CHANGE PASSWORD] Using Service Role client');
+    console.log('[CHANGE PASSWORD] Using direct PostgreSQL client');
 
     // ========================================
     // FETCH USER FROM users_v2 (EXCLUSIVE)
     // ========================================
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, email, password_hash')
-      .eq('id', userId)
-      .single();
+    const user = await queryOne(
+      'SELECT id, email, password_hash FROM users_v2 WHERE id = $1',
+      [userId],
+    );
 
-    if (userError || !user) {
-      console.error('[CHANGE PASSWORD] User not found in users_v2:', userError);
+    if (!user) {
+      console.error('[CHANGE PASSWORD] User not found in users_v2');
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
@@ -59,15 +51,7 @@ export async function POST(request: NextRequest) {
     // ========================================
     const newHash = await hashPassword(newPassword);
 
-    const { error: updateError } = await supabaseAdmin
-      .from('users_v2')
-      .update({ password_hash: newHash })
-      .eq('id', userId);
-
-    if (updateError) {
-      console.error('[CHANGE PASSWORD] Error updating password:', updateError);
-      throw updateError;
-    }
+    await updateOne('users_v2', { password_hash: newHash }, { id: userId });
 
     console.log('[CHANGE PASSWORD] ✅ Password updated for:', user.email);
     return NextResponse.json({ success: true });

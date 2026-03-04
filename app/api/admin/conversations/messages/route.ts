@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, insertOne, updateOne } from '@/lib/db';
 import { adminSessionOptions, AdminSessionData } from '@/lib/iron-session';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 const BACKEND_URL =
   process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -45,14 +38,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Multi-tenant security: Verify admin has access to this conversation's company
-    const { data: conversation, error: convError } = await supabaseAdmin
-      .from('conversations')
-      .select('company_id, session_id, user_phone, channel')
-      .eq('id', conversation_id)
-      .single();
+    const conversation = await queryOne(
+      'SELECT company_id, session_id, user_phone, channel FROM conversations WHERE id = $1',
+      [conversation_id]
+    );
 
-    if (convError || !conversation) {
-      console.error('[ADMIN MESSAGES] Conversation not found:', convError);
+    if (!conversation) {
+      console.error('[ADMIN MESSAGES] Conversation not found');
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
 
@@ -74,33 +66,27 @@ export async function POST(request: NextRequest) {
     const cleanContent = content ? content.replace(/^\[👤\s+.+?\]\n/, '') : '';
 
     // 3. Insert message with sender_user_id for attribution
-    const { data: newMessage, error: insertError } = await supabaseAdmin
-      .from('messages')
-      .insert({
+    let newMessage;
+    try {
+      newMessage = await insertOne('messages', {
         conversation_id,
         role: 'assistant',
         content: cleanContent,
         image_url: image_url || null,
         audio_url: audio_url || null,
         type,
-        sender_user_id: senderUserId, // ✅ FK para users_v2 - audit trail
-      })
-      .select()
-      .single();
-
-    if (insertError) {
+        sender_user_id: senderUserId, // FK para users_v2 - audit trail
+      });
+    } catch (insertError: any) {
       console.error('[ADMIN MESSAGES] Insert error:', insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
     // Update conversation preview
-    await supabaseAdmin
-      .from('conversations')
-      .update({
-        last_message_preview: cleanContent.substring(0, 100),
-        last_message_at: new Date().toISOString(),
-      })
-      .eq('id', conversation_id);
+    await updateOne('conversations', {
+      last_message_preview: cleanContent.substring(0, 100),
+      last_message_at: new Date().toISOString(),
+    }, { id: conversation_id });
 
     // 4. Forward to Python backend for WhatsApp delivery (if WhatsApp channel)
     if (conversation.channel === 'whatsapp' && conversation.session_id && conversation.user_phone) {

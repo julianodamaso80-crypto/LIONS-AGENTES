@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, insertOne, updateOne } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client (bypassa RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/leads/identify
@@ -31,22 +24,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Tenta encontrar lead existente
-    const { data: existing } = await supabaseAdmin
-      .from('leads')
-      .select('id, name')
-      .eq('company_id', companyId)
-      .eq('email', email.toLowerCase().trim())
-      .single();
+    const existing = await queryOne<{ id: string; name: string | null }>(
+      'SELECT id, name FROM leads WHERE company_id = $1 AND email = $2',
+      [companyId, email.toLowerCase().trim()],
+    );
 
     if (existing) {
       // Atualiza last_seen e nome (se o novo for mais completo)
-      await supabaseAdmin
-        .from('leads')
-        .update({
+      await updateOne(
+        'leads',
+        {
           last_seen_at: new Date().toISOString(),
           name: name || existing.name,
-        })
-        .eq('id', existing.id);
+        },
+        { id: existing.id },
+      );
 
       return NextResponse.json({
         leadId: existing.id,
@@ -56,20 +48,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Cria novo lead
-    const { data: newLead, error } = await supabaseAdmin
-      .from('leads')
-      .insert({
-        company_id: companyId,
-        email: email.toLowerCase().trim(),
-        name: name?.trim() || null,
-        last_seen_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+    const newLead = await insertOne('leads', {
+      company_id: companyId,
+      email: email.toLowerCase().trim(),
+      name: name?.trim() || null,
+      last_seen_at: new Date().toISOString(),
+    });
 
-    if (error) {
-      console.error('[LEADS API] Insert error:', error);
-      throw error;
+    if (!newLead) {
+      throw new Error('Failed to insert lead');
     }
 
     return NextResponse.json({

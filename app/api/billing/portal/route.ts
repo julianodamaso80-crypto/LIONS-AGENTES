@@ -7,18 +7,14 @@ import {
   sessionOptions,
   SessionData,
 } from '@/lib/iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 import Stripe from 'stripe';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-12-15.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-12-15.clover' });
+  return _stripe;
+}
 
 async function getCompanyIdFromSession(): Promise<string | null> {
   try {
@@ -30,11 +26,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
     }
 
     if (adminSession.adminId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', adminSession.adminId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [adminSession.adminId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -43,11 +38,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
 
     const userSession = await getIronSession<SessionData>(cookieStore, sessionOptions);
     if (userSession.userId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', userSession.userId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [userSession.userId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -80,14 +74,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get stripe_customer_id from subscription
-    const { data: subscription, error } = await supabaseAdmin
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('company_id', companyId)
-      .limit(1)
-      .single();
+    const subscription = await queryOne(
+      'SELECT stripe_customer_id FROM subscriptions WHERE company_id = $1 LIMIT 1',
+      [companyId],
+    );
 
-    if (error || !subscription?.stripe_customer_id) {
+    if (!subscription?.stripe_customer_id) {
       return NextResponse.json(
         {
           detail:
@@ -98,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create portal session directly with Stripe
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const portalSession = await getStripe().billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
       return_url: return_url,
     });

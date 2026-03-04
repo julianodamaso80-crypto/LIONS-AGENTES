@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne, updateOne } from '@/lib/db';
 import { sendRecoveryEmail } from '@/lib/email';
 import { generateSecureToken } from '@/lib/auth';
 import { rateLimit, RATE_LIMITS, getRateLimitHeaders } from '@/lib/rate-limit';
 import { log, sanitizeEmail } from '@/lib/logger';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 /**
  * POST /api/auth/forgot-password
@@ -45,7 +38,7 @@ export async function POST(request: NextRequest) {
     // =============================================
 
     // Check IP rate limit
-    const ipLimit = rateLimit(
+    const ipLimit = await rateLimit(
       `forgot:ip:${ip}`,
       RATE_LIMITS.FORGOT_PASSWORD_IP.maxRequests,
       RATE_LIMITS.FORGOT_PASSWORD_IP.windowMs,
@@ -63,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check email rate limit
-    const emailLimit = rateLimit(
+    const emailLimit = await rateLimit(
       `forgot:email:${normalizedEmail}`,
       RATE_LIMITS.FORGOT_PASSWORD_EMAIL.maxRequests,
       RATE_LIMITS.FORGOT_PASSWORD_EMAIL.windowMs,
@@ -103,54 +96,48 @@ export async function POST(request: NextRequest) {
     // =============================================
 
     // Try users_v2 first
-    const { data: user } = await supabaseAdmin
-      .from('users_v2')
-      .select('id, email')
-      .ilike('email', normalizedEmail)
-      .maybeSingle();
+    const user = await queryOne(
+      'SELECT id, email FROM users_v2 WHERE LOWER(email) = LOWER($1)',
+      [normalizedEmail],
+    );
 
     if (user) {
       log.info('[FORGOT PASSWORD] User found', { email: sanitizeEmail(user.email) });
 
       // Update reset token and reset attempts counter
-      const { error: updateError } = await supabaseAdmin
-        .from('users_v2')
-        .update({
+      try {
+        await updateOne('users_v2', {
           reset_token: code,
           reset_token_expires_at: expiresAt,
           reset_attempts: 0, // Reset counter for new token
-        })
-        .eq('id', user.id);
+        }, { id: user.id });
 
-      if (!updateError) {
         log.info('[FORGOT PASSWORD] Token saved, sending email');
         await sendRecoveryEmail(user.email, code);
-      } else {
+      } catch (updateError: any) {
         log.error('[FORGOT PASSWORD] Error saving token', { error: updateError.message });
       }
     } else {
       // Try admin_users (Master Admin)
-      const { data: admin } = await supabaseAdmin
-        .from('admin_users')
-        .select('id, email')
-        .ilike('email', normalizedEmail)
-        .maybeSingle();
+      const admin = await queryOne(
+        'SELECT id, email FROM admin_users WHERE LOWER(email) = LOWER($1)',
+        [normalizedEmail],
+      );
 
       if (admin) {
         log.info('[FORGOT PASSWORD] Admin found', { email: sanitizeEmail(admin.email) });
 
-        const { error: updateError } = await supabaseAdmin
-          .from('admin_users')
-          .update({
+        try {
+          await updateOne('admin_users', {
             reset_token: code,
             reset_token_expires_at: expiresAt,
             reset_attempts: 0,
-          })
-          .eq('id', admin.id);
+          }, { id: admin.id });
 
-        if (!updateError) {
           log.info('[FORGOT PASSWORD] Admin token saved, sending email');
           await sendRecoveryEmail(admin.email, code);
+        } catch (updateError: any) {
+          // Silently fail - security
         }
       } else {
         // User not found - log but return success (security)

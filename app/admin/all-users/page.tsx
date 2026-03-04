@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { User, Search, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { logSystemAction } from '@/lib/logger';
 
 // Tipos parciais para evitar expor campos sensíveis
 interface SafeUser {
@@ -101,33 +100,9 @@ export default function AdminAllUsersPage() {
         throw new Error(data.error || 'Failed to update status');
       }
 
-      await logSystemAction({
-        userId,
-        companyId: user?.company_id || undefined,
-        actionType: newStatus === 'active' ? 'USER_ACTIVATED' : 'USER_SUSPENDED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: {
-          userEmail: user?.email,
-          userName: `${user?.first_name} ${user?.last_name}`,
-          companyName: company?.company_name,
-          newStatus,
-        },
-        status: 'success',
-      });
-
       await loadData();
     } catch (error) {
       console.error('Error updating user:', error);
-
-      await logSystemAction({
-        actionType: 'USER_UPDATED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: { error: String(error), newStatus },
-        status: 'error',
-        errorMessage: 'Erro ao atualizar usuário',
-      });
 
       alert('Erro ao atualizar usuário');
     } finally {

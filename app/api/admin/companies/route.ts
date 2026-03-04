@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryAll, queryOne, insertOne, updateOne, query } from '@/lib/db';
 
 /**
  * GET /api/admin/companies
@@ -25,32 +18,36 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let query = supabaseAdmin
-      .from('companies')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
-    }
-
-    const { data: companies, error } = await query;
-
-    if (error) {
-      console.error('[ADMIN COMPANIES] Error:', error);
+    let companies: any[];
+    try {
+      if (status && status !== 'all') {
+        companies = await queryAll(
+          'SELECT * FROM companies WHERE status = $1 ORDER BY created_at DESC',
+          [status]
+        );
+      } else {
+        companies = await queryAll(
+          'SELECT * FROM companies ORDER BY created_at DESC'
+        );
+      }
+    } catch (dbError) {
+      console.error('[ADMIN COMPANIES] Error:', dbError);
       return NextResponse.json({ error: 'Error fetching companies' }, { status: 500 });
     }
 
     // Buscar subscriptions ativas com dados do plano
-    const { data: subscriptions } = await supabaseAdmin
-      .from('subscriptions')
-      .select('company_id, status, current_period_end, plans(name, price_brl, display_credits)')
-      .in('status', ['active', 'past_due']);
+    const subscriptions = await queryAll(
+      `SELECT s.company_id, s.status, s.current_period_end, p.name AS plan_name, p.price_brl, p.display_credits
+       FROM subscriptions s
+       LEFT JOIN plans p ON p.id = s.plan_id
+       WHERE s.status = ANY($1::text[])`,
+      [['active', 'past_due']]
+    );
 
     // Buscar saldos de créditos
-    const { data: credits } = await supabaseAdmin
-      .from('company_credits')
-      .select('company_id, balance_brl');
+    const credits = await queryAll(
+      'SELECT company_id, balance_brl FROM company_credits'
+    );
 
     // Criar mapa de subscription por company_id
     const subscriptionMap: Record<
@@ -64,16 +61,13 @@ export async function GET(request: NextRequest) {
       }
     > = {};
     for (const sub of subscriptions || []) {
-      const plan = sub.plans as any;
-      if (plan) {
-        subscriptionMap[sub.company_id] = {
-          plan_name: plan.name || '',
-          plan_price: parseFloat(plan.price_brl || '0'),
-          display_credits: plan.display_credits || 0,
-          current_period_end: sub.current_period_end,
-          status: sub.status,
-        };
-      }
+      subscriptionMap[sub.company_id] = {
+        plan_name: sub.plan_name || '',
+        plan_price: parseFloat(sub.price_brl || '0'),
+        display_credits: sub.display_credits || 0,
+        current_period_end: sub.current_period_end,
+        status: sub.status,
+      };
     }
 
     // Criar mapa de créditos por company_id
@@ -123,14 +117,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const { data, error } = await supabaseAdmin.from('companies').insert([body]).select().single();
-
-    if (error) {
-      console.error('[ADMIN COMPANIES] Create error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+      const data = await insertOne('companies', body);
+      return NextResponse.json({ company: data }, { status: 201 });
+    } catch (dbError: any) {
+      console.error('[ADMIN COMPANIES] Create error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
-
-    return NextResponse.json({ company: data }, { status: 201 });
   } catch (error: any) {
     console.error('[ADMIN COMPANIES] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -170,14 +163,16 @@ export async function PUT(request: NextRequest) {
       }
 
       // Count current active admins in the company
-      const { count: adminCount } = await supabaseAdmin
-        .from('users_v2')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', id)
-        .in('role', ['admin_company', 'owner', 'admin'])
-        .neq('status', 'suspended');
+      const countResult = await queryOne<{ count: number }>(
+        `SELECT COUNT(*)::int as count FROM users_v2
+         WHERE company_id = $1
+         AND role = ANY($2::text[])
+         AND status != $3`,
+        [id, ['admin_company', 'owner', 'admin'], 'suspended']
+      );
+      const adminCount = countResult?.count || 0;
 
-      if ((adminCount || 0) > newMaxUsers) {
+      if (adminCount > newMaxUsers) {
         return NextResponse.json(
           {
             error: `Não é possível reduzir para ${newMaxUsers} administradores. Existem ${adminCount} administradores ativos na empresa.`,
@@ -187,19 +182,18 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('companies')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      const data = await updateOne('companies', updateData, { id });
 
-    if (error) {
-      console.error('[ADMIN COMPANIES] Update error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      if (!data) {
+        return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({ company: data });
+    } catch (dbError: any) {
+      console.error('[ADMIN COMPANIES] Update error:', dbError);
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
-
-    return NextResponse.json({ company: data });
   } catch (error: any) {
     console.error('[ADMIN COMPANIES] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

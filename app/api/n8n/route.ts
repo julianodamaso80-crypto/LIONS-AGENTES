@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { createClient } from '@supabase/supabase-js';
 import { logSystemAction, getClientInfo } from '@/lib/logger';
 import { sessionOptions, SessionData } from '@/lib/iron-session';
+import { queryOne } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
 
 export async function POST(request: NextRequest) {
   console.log('[N8N API] ========== REQUISIÇÃO RECEBIDA ==========');
@@ -38,11 +31,10 @@ export async function POST(request: NextRequest) {
     console.log('[N8N API] Usando Company ID:', targetCompanyId);
 
     // Buscar informações da company
-    const { data: company } = await supabaseAdmin
-      .from('companies')
-      .select('webhook_url, use_langchain')
-      .eq('id', targetCompanyId)
-      .maybeSingle();
+    const company = await queryOne<{ webhook_url: string | null; use_langchain: boolean | null }>(
+      'SELECT webhook_url, use_langchain FROM companies WHERE id = $1',
+      [targetCompanyId],
+    );
 
     if (!company) {
       console.error(`[N8N API] Company ${targetCompanyId} não encontrada no banco.`);

@@ -7,18 +7,14 @@ import {
   sessionOptions,
   SessionData,
 } from '@/lib/iron-session';
-import { createClient } from '@supabase/supabase-js';
+import { queryOne } from '@/lib/db';
 import Stripe from 'stripe';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-12-15.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-12-15.clover' });
+  return _stripe;
+}
 
 interface SessionInfo {
   userId: string | null;
@@ -37,11 +33,10 @@ async function getSessionInfo(): Promise<SessionInfo> {
 
     // If admin session has adminId, try to get company_id from users_v2
     if (adminSession.adminId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', adminSession.adminId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [adminSession.adminId],
+      );
 
       if (data?.company_id) {
         return { userId: adminSession.adminId, companyId: data.company_id };
@@ -51,11 +46,10 @@ async function getSessionInfo(): Promise<SessionInfo> {
     // Try user session
     const userSession = await getIronSession<SessionData>(cookieStore, sessionOptions);
     if (userSession.userId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', userSession.userId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [userSession.userId],
+      );
 
       if (data?.company_id) {
         return { userId: userSession.userId, companyId: data.company_id };
@@ -91,13 +85,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Buscar plano
-    const { data: plan, error: planError } = await supabaseAdmin
-      .from('plans')
-      .select('id, name, stripe_price_id, price_brl, is_active')
-      .eq('id', plan_id)
-      .single();
+    const plan = await queryOne(
+      'SELECT id, name, stripe_price_id, price_brl, is_active FROM plans WHERE id = $1',
+      [plan_id],
+    );
 
-    if (planError || !plan) {
+    if (!plan) {
       return NextResponse.json({ detail: 'Plano não encontrado' }, { status: 404 });
     }
 
@@ -114,23 +107,19 @@ export async function POST(request: NextRequest) {
 
     // 2. Buscar ou criar Stripe Customer
     // Primeiro verificar se já existe na tabela subscriptions
-    const { data: existingSub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('stripe_customer_id')
-      .eq('company_id', companyId)
-      .limit(1)
-      .single();
+    const existingSub = await queryOne(
+      'SELECT stripe_customer_id FROM subscriptions WHERE company_id = $1 LIMIT 1',
+      [companyId],
+    );
 
     let stripeCustomerId = existingSub?.stripe_customer_id;
 
     if (!stripeCustomerId) {
       // Buscar dados do owner para criar customer
-      const { data: owner } = await supabaseAdmin
-        .from('users_v2')
-        .select('email, first_name, last_name')
-        .eq('company_id', companyId)
-        .eq('is_owner', true)
-        .single();
+      const owner = await queryOne(
+        "SELECT email, first_name, last_name FROM users_v2 WHERE company_id = $1 AND is_owner = true",
+        [companyId],
+      );
 
       if (!owner?.email) {
         return NextResponse.json(
@@ -140,14 +129,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Buscar nome da empresa
-      const { data: company } = await supabaseAdmin
-        .from('companies')
-        .select('company_name')
-        .eq('id', companyId)
-        .single();
+      const company = await queryOne(
+        'SELECT company_name FROM companies WHERE id = $1',
+        [companyId],
+      );
 
       // Criar customer no Stripe
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: owner.email,
         name: company?.company_name || `${owner.first_name} ${owner.last_name}`,
         metadata: {
@@ -159,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Criar Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
       customer: stripeCustomerId,
       line_items: [

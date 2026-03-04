@@ -7,13 +7,7 @@ import {
   SessionData,
   AdminSessionData,
 } from '@/lib/iron-session';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+import { queryOne, queryAll } from '@/lib/db';
 
 const DOLLAR_RATE = parseFloat(process.env.DOLLAR_RATE || '6.00');
 const SELL_MULTIPLIER = 2.68; // Multiplicador de venda para o cliente
@@ -38,11 +32,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
     }
 
     if (adminSession.adminId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', adminSession.adminId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [adminSession.adminId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -51,11 +44,10 @@ async function getCompanyIdFromSession(): Promise<string | null> {
 
     const userSession = await getIronSession<SessionData>(cookieStore, sessionOptions);
     if (userSession.userId) {
-      const { data } = await supabaseAdmin
-        .from('users_v2')
-        .select('company_id')
-        .eq('id', userSession.userId)
-        .single();
+      const data = await queryOne(
+        'SELECT company_id FROM users_v2 WHERE id = $1',
+        [userSession.userId],
+      );
 
       if (data?.company_id) {
         return data.company_id;
@@ -87,18 +79,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate date range
-    // 🔧 FIX: Usar timezone do Brasil (GMT-3) para filtros de data
     let startDt: string;
     let endDt: string;
     let periodLabel: string;
 
     if (startDate && endDate) {
-      // Usar offset -03:00 para horário de Brasília
       startDt = `${startDate}T00:00:00-03:00`;
       endDt = `${endDate}T23:59:59-03:00`;
       periodLabel = `${startDate}_to_${endDate}`;
     } else {
-      // Para períodos relativos, usar horário local do servidor
       const now = new Date();
       const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
       startDt = start.toISOString();
@@ -107,27 +96,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch usage logs
-    const { data: logs, error } = await supabaseAdmin
-      .from('token_usage_logs')
-      .select('agent_id, service_type, model_name, total_cost_usd')
-      .eq('company_id', companyId)
-      .gte('created_at', startDt)
-      .lte('created_at', endDt);
-
-    if (error) {
-      console.error('[Billing] Error fetching usage:', error);
-      return NextResponse.json({
-        period: periodLabel,
-        total_cost_brl: 0,
-        by_agent: [],
-      });
-    }
+    const logs = await queryAll(
+      `SELECT agent_id, service_type, model_name, total_cost_usd
+       FROM token_usage_logs
+       WHERE company_id = $1 AND created_at >= $2 AND created_at <= $3`,
+      [companyId, startDt, endDt],
+    );
 
     // Fetch agents
-    const { data: agents } = await supabaseAdmin
-      .from('agents')
-      .select('id, name')
-      .eq('company_id', companyId);
+    const agents = await queryAll(
+      'SELECT id, name FROM agents WHERE company_id = $1',
+      [companyId],
+    );
 
     const agentsMap: Record<string, string> = {};
     for (const agent of agents || []) {

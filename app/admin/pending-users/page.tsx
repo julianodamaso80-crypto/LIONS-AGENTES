@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { UserCheck, CheckCircle, XCircle, User } from 'lucide-react';
-import { logSystemAction } from '@/lib/logger';
 
 // Safe types (without sensitive fields)
 interface SafeUser {
@@ -91,32 +90,9 @@ export default function AdminPendingUsersPage() {
         throw new Error(data.error || 'Failed to approve');
       }
 
-      await logSystemAction({
-        userId,
-        companyId,
-        actionType: 'USER_APPROVED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: {
-          userEmail: user?.email,
-          userName: `${user?.first_name} ${user?.last_name}`,
-          companyName: company?.company_name,
-        },
-        status: 'success',
-      });
-
       await loadData();
     } catch (error) {
       console.error('Error approving user:', error);
-
-      await logSystemAction({
-        actionType: 'USER_APPROVED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: { error: String(error) },
-        status: 'error',
-        errorMessage: 'Erro ao aprovar usuário',
-      });
 
       alert('Erro ao aprovar usuário');
     } finally {
@@ -142,30 +118,9 @@ export default function AdminPendingUsersPage() {
         throw new Error(data.error || 'Failed to reject');
       }
 
-      await logSystemAction({
-        userId,
-        actionType: 'USER_REJECTED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: {
-          userEmail: user?.email,
-          userName: `${user?.first_name} ${user?.last_name}`,
-        },
-        status: 'success',
-      });
-
       await loadData();
     } catch (error) {
       console.error('Error rejecting user:', error);
-
-      await logSystemAction({
-        actionType: 'USER_REJECTED',
-        resourceType: 'user',
-        resourceId: userId,
-        details: { error: String(error) },
-        status: 'error',
-        errorMessage: 'Erro ao rejeitar usuário',
-      });
 
       alert('Erro ao rejeitar usuário');
     } finally {
