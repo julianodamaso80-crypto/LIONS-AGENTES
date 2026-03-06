@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MessageCircle, Save, Loader2, Eye, EyeOff, Bot } from 'lucide-react';
-// 🔒 SECURITY: Removed direct supabase import - using API routes instead
 import { useToast } from '@/hooks/use-toast';
 import { Agent } from '@/types/agent';
 
@@ -62,7 +61,6 @@ export function IntegrationModal({ companyId, companyName }: IntegrationModalPro
     }
   }, [open]);
 
-  // 🔒 SECURITY: Using API route instead of direct Supabase access
   const loadIntegration = async () => {
     setLoading(true);
     try {

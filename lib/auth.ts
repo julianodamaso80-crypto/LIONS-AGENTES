@@ -111,11 +111,19 @@ export function validatePasswordStrength(password: string): PasswordValidationRe
 
 export function generateSecureToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const array = new Uint8Array(8);
-  crypto.getRandomValues(array);
-  return Array.from(array)
-    .map((b) => chars[b % chars.length])
-    .join('');
+  const charsLen = chars.length;
+  const maxValid = 256 - (256 % charsLen);
+  const result: string[] = [];
+  while (result.length < 8) {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    Array.from(array).forEach((b) => {
+      if (b < maxValid && result.length < 8) {
+        result.push(chars[b % charsLen]);
+      }
+    });
+  }
+  return result.join('');
 }
 
 export function isValidCPF(cpf: string): boolean {

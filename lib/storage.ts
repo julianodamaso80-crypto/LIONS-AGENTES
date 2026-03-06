@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 
 // =============================================
 // S3-Compatible Storage (MinIO / AWS S3)
-// Replaces Supabase Storage
 // =============================================
 
 let s3Client: S3Client | null = null;

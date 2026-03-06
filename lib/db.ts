@@ -141,7 +141,7 @@ export async function countWhere(
 }
 
 /**
- * Call a PostgreSQL function (replaces Supabase RPC)
+ * Call a PostgreSQL function via RPC
  */
 export async function rpc<T = any>(
   functionName: string,

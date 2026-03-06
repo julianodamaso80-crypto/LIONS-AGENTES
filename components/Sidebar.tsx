@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Menu, X } from 'lucide-react';
-// 🔒 SECURITY: Removed direct supabase import - using API routes instead
 import { Conversation } from '@/lib/types';
 import { AccountMenu } from '@/components/AccountMenu';
 
@@ -28,7 +27,6 @@ export function Sidebar({
     }
   }, [userId, currentSessionId]);
 
-  // 🔒 SECURITY: Using API route instead of direct Supabase access
   const loadConversations = async () => {
     try {
       const response = await fetch('/api/conversations');

@@ -36,7 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-// Supabase Realtime removed - using polling instead
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { toast } from 'sonner';
 import { Message } from '@/lib/types';

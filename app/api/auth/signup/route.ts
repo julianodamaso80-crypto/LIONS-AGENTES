@@ -95,9 +95,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Todos os campos são obrigatórios' }, { status: 400 });
     }
 
-    if (signupData.password.length < 6) {
+    if (signupData.password.length < 8) {
       return NextResponse.json(
-        { error: 'A senha deve ter no mínimo 6 caracteres' },
+        { error: 'A senha deve ter no mínimo 8 caracteres' },
         { status: 400 },
       );
     }

@@ -4,7 +4,13 @@ import { cookies } from 'next/headers';
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const cookieStore = await cookies();
+  const adminCookie = cookieStore.get('smith_admin_session');
+  if (!adminCookie) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/admin/pricing`, {
       headers: {
