@@ -49,7 +49,7 @@ ${inviteLink}
 
 Este convite é exclusivo para você e expira em 7 dias.
 
-Equipe Smith
+Equipe Scale AI
     `.trim(),
     html: `
 <!DOCTYPE html>
@@ -122,7 +122,7 @@ Equipe Smith
                 Se você não esperava este convite, pode ignorar este email.
               </p>
               <p style="color: #cccccc; font-size: 11px; margin: 20px 0 0 0;">
-                © ${new Date().getFullYear()} Smith AI - Sistema de Atendimento Inteligente
+                © ${new Date().getFullYear()} Scale AI - Sistema de Atendimento Inteligente
               </p>
             </td>
           </tr>
@@ -173,11 +173,11 @@ export async function sendRecoveryEmail(
   const msg = {
     to: email,
     from: process.env.SENDGRID_FROM_EMAIL,
-    subject: 'Recuperação de Senha - Smith',
+    subject: 'Recuperação de Senha - Scale AI',
     text: `
 Olá,
 
-Você solicitou a recuperação de sua senha no Smith.
+Você solicitou a recuperação de sua senha no Scale AI.
 
 Seu código de verificação é: ${code}
 
@@ -185,7 +185,7 @@ Este código expira em 15 minutos.
 
 Se você não solicitou esta recuperação, ignore este email.
 
-Equipe Smith
+Equipe Scale AI
         `.trim(),
     html: `
 <!DOCTYPE html>
@@ -252,7 +252,7 @@ Equipe Smith
                 Se você não solicitou esta recuperação, ignore este email.
               </p>
               <p style="color: #4B5563; font-size: 11px; margin: 15px 0 0 0;">
-                © ${new Date().getFullYear()} Smith AI - Sistema de Atendimento Inteligente
+                © ${new Date().getFullYear()} Scale AI - Sistema de Atendimento Inteligente
               </p>
             </td>
           </tr>

@@ -283,7 +283,7 @@ export default function AdminLogsPage() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Logs do Sistema</h1>
-        <p className="text-muted-foreground">Visualize todos os logs e atividades do sistema Smith</p>
+        <p className="text-muted-foreground">Visualize todos os logs e atividades do sistema Scale AI</p>
       </div>
 
       <Card className="bg-card border-border mb-6">

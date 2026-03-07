@@ -6,7 +6,7 @@ O UCP é transport-agnostic, suportando:
 - MCP: Model Context Protocol (para LLMs)
 - A2A: Agent-to-Agent Protocol
 
-O Smith escolhe o melhor transport disponível baseado no manifest.
+O Scale AI escolhe o melhor transport disponível baseado no manifest.
 
 Referência: https://ucp.dev/specification/overview/#transport-layer
 """
@@ -102,7 +102,7 @@ class RESTTransportClient(UCPTransportClient):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Smith-UCP-Agent/1.0"
+            "User-Agent": "Scale-UCP-Agent/1.0"
         }
 
         if self.auth_token:
@@ -182,7 +182,7 @@ class MCPTransportClient(UCPTransportClient):
     """
     Transport via Model Context Protocol.
 
-    O Smith age como MCP Client, chamando tools expostas pelo MCP Server da loja.
+    O Scale AI age como MCP Client, chamando tools expostas pelo MCP Server da loja.
 
     Capabilities UCP mapeiam 1:1 para MCP Tools:
     - dev.ucp.shopping.checkout -> tool "checkout"
@@ -217,7 +217,7 @@ class MCPTransportClient(UCPTransportClient):
                         "tools": {}
                     },
                     "clientInfo": {
-                        "name": "Smith-UCP-Agent",
+                        "name": "Scale-UCP-Agent",
                         "version": "1.0.0"
                     }
                 }
@@ -379,7 +379,7 @@ class A2ATransportClient(UCPTransportClient):
     """
     Transport via Agent-to-Agent Protocol.
 
-    O Smith comunica com o Agent da loja via A2A,
+    O Scale AI comunica com o Agent da loja via A2A,
     trocando mensagens estruturadas.
     """
 

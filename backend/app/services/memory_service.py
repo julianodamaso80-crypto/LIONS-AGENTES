@@ -1,5 +1,5 @@
 """
-MemoryService - Advanced Memory System for Agent Smith V2
+MemoryService - Advanced Memory System for Agent Scale AI V2
 
 ARCHITECTURE:
 3-Layer Memory System:
@@ -51,7 +51,7 @@ DEFAULT_MEMORY_MODEL = DEFAULT_MEMORY_SETTINGS.get("memory_llm_model", "gpt-4o-m
 
 class MemoryService:
     """
-    Central memory management service for Agent Smith v6.
+    Central memory management service for Agent Scale AI v6.
 
     Key Features:
     - Configurable summarization triggers per company

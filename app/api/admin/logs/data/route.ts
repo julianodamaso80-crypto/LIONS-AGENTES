@@ -6,7 +6,7 @@ import { queryAll } from '@/lib/db';
  * GET /api/admin/logs/data
  *
  * Returns system logs and related entity data for the admin logs page.
- * Requires: smith_admin_session cookie
+ * Requires: scale_admin_session cookie
  *
  * Query params:
  * - dateFilter: 'today' | '7days' | '30days' | '90days'
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // AUTHENTICATION CHECK
     // =============================================
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

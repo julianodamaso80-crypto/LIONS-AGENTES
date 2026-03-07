@@ -138,7 +138,7 @@ export async function middleware(request: NextRequest) {
       const loginUrl = new URL('/admin/login', request.url);
       const redirectResp = NextResponse.redirect(loginUrl);
       // Restaurando limpeza de cookie
-      redirectResp.cookies.delete('smith_admin_session');
+      redirectResp.cookies.delete('scale_admin_session');
       // Aplicar proteção de clickjacking no redirect também
       redirectResp.headers.set('X-Frame-Options', 'DENY');
       return redirectResp;
@@ -160,7 +160,7 @@ export async function middleware(request: NextRequest) {
     loginUrl.searchParams.set('redirect', pathname);
     const redirectResp = NextResponse.redirect(loginUrl);
     // Restaurando limpeza de cookie
-    redirectResp.cookies.delete('smith_user_session');
+    redirectResp.cookies.delete('scale_user_session');
     redirectResp.headers.set('X-Frame-Options', 'DENY');
     return redirectResp;
   }

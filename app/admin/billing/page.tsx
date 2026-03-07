@@ -490,7 +490,7 @@ export default function BillingPage() {
                     Você ainda não tem um plano
                   </h2>
                   <p className="text-muted-foreground mb-4">
-                    Escolha um plano abaixo para começar a usar o Smith AI
+                    Escolha um plano abaixo para começar a usar o Scale AI
                   </p>
                 </div>
               )}

@@ -57,7 +57,7 @@ class UCPDiscoveryService:
                 follow_redirects=True,
                 headers={
                     "Accept": "application/json",
-                    "User-Agent": "Smith-UCP-Agent/1.0"
+                    "User-Agent": "Scale-UCP-Agent/1.0"
                 }
             )
         return self._http_client

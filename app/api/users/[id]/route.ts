@@ -7,7 +7,7 @@ import { queryOne } from '@/lib/db';
  *
  * Returns basic user info for displaying sender name/avatar.
  * Used by Realtime message enrichment.
- * Requires: smith_admin_session cookie
+ * Requires: scale_admin_session cookie
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,8 +17,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // AUTHENTICATION CHECK (USER OR ADMIN)
     // =============================================
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('smith_user_session');
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!userCookie && !adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

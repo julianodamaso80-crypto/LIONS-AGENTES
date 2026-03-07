@@ -20,7 +20,7 @@ const ALLOWED_MIME_TYPES: Record<string, string[]> = {
  * POST /api/upload
  *
  * Uploads a file to S3-compatible storage (MinIO) with security validations.
- * Requires: smith_user_session OR smith_admin_session cookie
+ * Requires: scale_user_session OR scale_admin_session cookie
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     // AUTHENTICATION CHECK
     // =============================================
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('smith_user_session');
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!userCookie && !adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

@@ -446,7 +446,7 @@ class BillingService(BillingCore):
                     <li>Seus agentes não responderão mais até que uma nova assinatura seja ativada</li>
                 </ul>
                 <p>Se isso foi um engano ou você deseja reativar sua assinatura, acesse o painel e escolha um novo plano.</p>
-                <p style="margin-top: 30px;">Atenciosamente,<br>Equipe Smith AI</p>
+                <p style="margin-top: 30px;">Atenciosamente,<br>Equipe Scale AI</p>
             </div>
             """
 

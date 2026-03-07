@@ -8,7 +8,7 @@ Uso:
 
 Pré-requisito:
     A tabela llm_pricing deve existir no banco.
-    Se você rodou o smith_master_setup.sql, a tabela já foi criada!
+    Se você rodou o scale_master_setup.sql, a tabela já foi criada!
 """
 
 import os

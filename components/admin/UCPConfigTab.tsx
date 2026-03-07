@@ -384,7 +384,7 @@ export function UCPConfigTab({ agentId, companyId }: Props) {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Informe a URL da loja. O Smith buscará{' '}
+              Informe a URL da loja. O Scale AI buscará{' '}
               <code className="bg-muted px-1 rounded">/.well-known/ucp</code> automaticamente.
             </p>
           </div>

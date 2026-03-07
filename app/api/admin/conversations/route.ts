@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/admin/conversations
  *
  * Returns all conversations for the admin's company with user and agent data.
- * Requires: smith_admin_session cookie
+ * Requires: scale_admin_session cookie
  */
 export async function GET(request: NextRequest) {
   try {

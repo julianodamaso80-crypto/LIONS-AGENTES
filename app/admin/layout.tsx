@@ -259,7 +259,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden">
-              <img src="/smith-logo.png" alt="Smith Logo" className="w-full h-full object-cover" />
+              <img src="/scale-logo.png" alt="Scale AI Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h1 className="text-foreground font-bold text-lg">
@@ -529,7 +529,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Version Info moved to bottom */}
           <div className="mt-auto pt-4 text-center">
             <p className="text-[10px] text-muted-foreground">
-              Sistema Smith v6.1
+              Sistema Scale AI v6.1
             </p>
           </div>
         </nav>

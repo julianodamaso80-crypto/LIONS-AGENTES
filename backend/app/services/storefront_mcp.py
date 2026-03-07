@@ -138,7 +138,7 @@ class StorefrontMCPClient:
             # FIX: Use transient client to avoid "Event loop is closed" errors across requests
             async with httpx.AsyncClient(timeout=30.0, headers={
                 "Content-Type": "application/json",
-                "User-Agent": "Smith-Storefront-MCP/1.0"
+                "User-Agent": "Scale-Storefront-MCP/1.0"
             }) as client:
                 response = await client.post(
                     self.mcp_endpoint,

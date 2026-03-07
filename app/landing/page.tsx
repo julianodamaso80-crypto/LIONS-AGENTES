@@ -24,7 +24,7 @@ export default function LandingPage() {
       <HeroSection />
       <Script
         id="mw"
-        src="https://smith-v2-theta.vercel.app/widget.js"
+        src="https://scale-v2-theta.vercel.app/widget.js"
         strategy="afterInteractive"
         onLoad={() => {
           if ((window as any).mw) {

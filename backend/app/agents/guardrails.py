@@ -202,7 +202,7 @@ TOXIC_BLOCK_PATTERNS: List[str] = [
 ]
 
 
-class SmithGuardrail:
+class ScaleGuardrail:
     """
     Orquestrador de Segurança para Agentes.
 

@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard Administrativo</h1>
-        <p className="text-muted-foreground">Visão geral do sistema Smith</p>
+        <p className="text-muted-foreground">Visão geral do sistema Scale AI</p>
       </div>
 
       {loading ? (

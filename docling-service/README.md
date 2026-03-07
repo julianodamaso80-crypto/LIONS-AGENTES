@@ -1,7 +1,7 @@
 # Docling Service
 
 Microserviço assíncrono para conversão de documentos em Markdown usando IBM Docling.
-Usado pelo Agent Smith como parte do pipeline de sanitização de documentos.
+Usado pelo Agent Scale AI como parte do pipeline de sanitização de documentos.
 
 ## Arquitetura
 
@@ -72,7 +72,7 @@ São **3 serviços** no Railway, todos apontando para este repositório:
 - Env vars: mesmas do API
 - Sem porta exposta (não recebe HTTP)
 
-### No Agent Smith:
+### No Agent Scale AI:
 - Adicionar env var: `DOCLING_SERVICE_URL=http://docling-api.railway.internal:8001`
 - Adicionar env var: `DOCLING_SERVICE_KEY=mesma-chave-do-SERVICE_KEY`
 

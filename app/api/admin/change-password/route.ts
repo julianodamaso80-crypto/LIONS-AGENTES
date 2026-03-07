@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * Only interacts with admin_users table.
  *
  * Security:
- * - Requires valid smith_admin_session cookie
+ * - Requires valid scale_admin_session cookie
  * - Only searches in admin_users table
  * - Never touches users_v2
  */

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * POST /api/conversations
  *
  * Creates a new conversation for the authenticated user.
- * Requires: smith_user_session cookie
+ * Requires: scale_user_session cookie
  */
 export async function POST(request: NextRequest) {
   try {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
  * GET /api/conversations
  *
  * Gets all conversations for the authenticated user.
- * Requires: smith_user_session cookie
+ * Requires: scale_user_session cookie
  */
 export async function GET(request: NextRequest) {
   try {

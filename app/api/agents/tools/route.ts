@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic';
 /**
  * Helper: Get authenticated session
  * Returns different data based on session type:
- * - Master Admin (smith_admin_session): isMasterAdmin=true, no company restriction
- * - Company User (smith_user_session): isMasterAdmin=false, has companyId
+ * - Master Admin (scale_admin_session): isMasterAdmin=true, no company restriction
+ * - Company User (scale_user_session): isMasterAdmin=false, has companyId
  */
 async function getAuthenticatedSession() {
   const cookieStore = await cookies();
@@ -93,7 +93,7 @@ async function validateAgentOwnership(
  * GET /api/agents/tools
  *
  * Lists HTTP tools for a specific agent.
- * Requires: smith_admin_session (master) or smith_user_session (company user)
+ * Requires: scale_admin_session (master) or scale_user_session (company user)
  * Query params: agentId (required)
  */
 export async function GET(request: NextRequest) {
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
  * POST /api/agents/tools
  *
  * Creates a new HTTP tool for an agent.
- * Requires: smith_admin_session (master) or smith_user_session (company user)
+ * Requires: scale_admin_session (master) or scale_user_session (company user)
  * Body: { agent_id, name, description, ... }
  */
 export async function POST(request: NextRequest) {
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
  * PUT /api/agents/tools
  *
  * Updates an existing HTTP tool.
- * Requires: smith_admin_session (master) or smith_user_session (company user)
+ * Requires: scale_admin_session (master) or scale_user_session (company user)
  * Body: { id, ... updates }
  */
 export async function PUT(request: NextRequest) {
@@ -288,7 +288,7 @@ export async function PUT(request: NextRequest) {
  * DELETE /api/agents/tools
  *
  * Soft deletes a tool (sets is_active = false).
- * Requires: smith_admin_session (master) or smith_user_session (company user)
+ * Requires: scale_admin_session (master) or scale_user_session (company user)
  * Query params: id (required)
  */
 export async function DELETE(request: NextRequest) {

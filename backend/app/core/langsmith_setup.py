@@ -1,6 +1,6 @@
 """
 LangSmith Setup - Observabilidade de Agentes
-Configura tracing automático com metadados do SmithV5.
+Configura tracing automático com metadados do Scale-AI-V5.
 
 Este módulo garante isolamento multi-tenant através de:
 - Metadados (company_id, agent_id) em cada trace

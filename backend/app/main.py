@@ -89,8 +89,8 @@ async def lifespan(app: FastAPI):
 debug_mode = os.getenv("DEBUG", "false").lower() == "true"
 
 app = FastAPI(
-    title="Agent Smith V2 API",
-    description="Backend FastAPI com LangChain para o Agent Smith",
+    title="Agent Scale AI V2 API",
+    description="Backend FastAPI com LangChain para o Agent Scale AI",
     version="1.0.0",
     debug=settings.DEBUG,
     lifespan=lifespan,
@@ -159,7 +159,7 @@ async def root():
     """Health check endpoint"""
     return {
         "status": "ok",
-        "service": "Agent Smith - LangChain API",
+        "service": "Agent Scale AI - LangChain API",
         "version": "1.0.0",
     }
 

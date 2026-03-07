@@ -1,6 +1,6 @@
 import { AdminUser } from './types';
 
-const ADMIN_SESSION_KEY = 'smith_admin_session';
+const ADMIN_SESSION_KEY = 'scale_admin_session';
 const ADMIN_SESSION_EXPIRY_HOURS = 8;
 
 export interface AdminSessionData {

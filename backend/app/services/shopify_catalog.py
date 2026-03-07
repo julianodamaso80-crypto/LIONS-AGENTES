@@ -99,7 +99,7 @@ class ShopifyCatalogService:
         if self._http_client is None:
             self._http_client = httpx.AsyncClient(
                 timeout=30.0,
-                headers={"User-Agent": "Smith-Shopify-Catalog/1.0"}
+                headers={"User-Agent": "Scale-Shopify-Catalog/1.0"}
             )
         return self._http_client
 

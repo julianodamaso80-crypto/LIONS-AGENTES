@@ -1,6 +1,6 @@
 import { UserV2 } from './types';
 
-const SESSION_KEY = 'smith_user_session';
+const SESSION_KEY = 'scale_user_session';
 const SESSION_EXPIRY_DAYS = 7;
 
 export interface SessionData {

@@ -75,8 +75,8 @@ export default function AdminLoginPage() {
                 <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse"></div>
                 <div className="relative w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-2 border-blue-500/30">
                   <Image
-                    src="/smith-logo.png"
-                    alt="Smith Logo"
+                    src="/scale-logo.png"
+                    alt="Scale AI Logo"
                     fill
                     className="object-cover"
                   />
@@ -86,7 +86,7 @@ export default function AdminLoginPage() {
 
             <div className="space-y-2 text-center">
               <h1 className="text-3xl font-bold text-white tracking-tight">
-                Agent Smith <span className="text-blue-500">v6.1</span>
+                Agent Scale AI <span className="text-blue-500">v6.1</span>
               </h1>
               <p className="text-lg font-medium text-blue-400">Painel Administrativo</p>
               <p className="text-sm text-gray-400">Acesso exclusivo para administradores</p>

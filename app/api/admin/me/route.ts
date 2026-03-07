@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  * SECURE ADMIN ENDPOINT - Session Leakage Protection
  *
  * This endpoint returns admin data ONLY for:
- * - Master Admin (from admin_users table via smith_admin_session)
+ * - Master Admin (from admin_users table via scale_admin_session)
  * - Company Admin (from users_v2 with role IN ['admin_company', 'owner', 'admin'])
  *
  * CRITICAL: If user is a 'member', this endpoint returns 403.

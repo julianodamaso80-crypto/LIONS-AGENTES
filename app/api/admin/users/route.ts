@@ -6,7 +6,7 @@ import { queryAll } from '@/lib/db';
  * GET /api/admin/users
  *
  * Returns list of all users WITHOUT sensitive fields.
- * Requires: smith_admin_session cookie
+ * Requires: scale_admin_session cookie
  */
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     // AUTHENTICATION CHECK
     // =============================================
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

@@ -1,5 +1,5 @@
 """
-MCP Servers internos do Agent Smith.
+MCP Servers internos do Agent Scale AI.
 Cada server implementa o protocolo MCP (JSON-RPC sobre stdio).
 """
 

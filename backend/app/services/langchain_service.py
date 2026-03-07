@@ -26,7 +26,7 @@ except ImportError:
     OperationalError = Exception  # Fallback
 
 # Services
-from app.agents.guardrails import SmithGuardrail  # [NEW] Guardrails Import
+from app.agents.guardrails import ScaleGuardrail  # [NEW] Guardrails Import
 
 # Models
 from app.models.conversation_log import ConversationMetrics, RAGChunk
@@ -147,7 +147,7 @@ SUPPORTED_PROVIDERS = {
     "openrouter": [],  # Populated dynamically via sync from OpenRouter API
 }
 
-DEFAULT_SYSTEM_PROMPT = """Você é o Agent Smith, um assistente inteligente e prestativo.
+DEFAULT_SYSTEM_PROMPT = """Você é o Agent Scale AI, um assistente inteligente e prestativo.
 Seja profissional, claro e objetivo nas suas respostas.
 Se não souber a resposta, diga que não sabe."""
 
@@ -317,7 +317,7 @@ class LangChainService:
             guardrail = None
 
             try:
-                guardrail = SmithGuardrail(agent_config=agent, company_id=company_id)
+                guardrail = ScaleGuardrail(agent_config=agent, company_id=company_id)
                 is_blocked, block_reason, sanitized_text = await guardrail.validate_input(user_message)
 
                 if is_blocked:

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
 
-    response.cookies.delete('smith_admin_session');
+    response.cookies.delete('scale_admin_session');
 
     await logSystemAction({
       adminId,

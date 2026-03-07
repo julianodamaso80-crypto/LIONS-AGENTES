@@ -6,7 +6,7 @@ import { queryAll, insertOne, updateOne } from '@/lib/db';
  * POST /api/messages
  *
  * Creates a new message in a conversation.
- * Requires: smith_user_session OR smith_admin_session cookie
+ * Requires: scale_user_session OR scale_admin_session cookie
  */
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
     // AUTHENTICATION CHECK (USER OR ADMIN)
     // =============================================
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('smith_user_session');
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!userCookie && !adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
  * GET /api/messages?conversation_id=xxx
  *
  * Gets all messages for a conversation.
- * Requires: smith_user_session OR smith_admin_session cookie
+ * Requires: scale_user_session OR scale_admin_session cookie
  */
 export async function GET(request: NextRequest) {
   try {
@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
     // AUTHENTICATION CHECK
     // =============================================
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('smith_user_session');
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!userCookie && !adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

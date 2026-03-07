@@ -128,7 +128,7 @@ class EmailService:
           <tr>
             <td style="background-color: #141414; padding: 25px; text-align: center; border-top: 1px solid #2D2D2D;">
               <p style="color: #4B5563; font-size: 11px; margin: 0;">
-                © {datetime.now().year} Smith AI - Sistema de Atendimento Inteligente
+                © {datetime.now().year} Scale AI - Sistema de Atendimento Inteligente
               </p>
             </td>
           </tr>
@@ -209,7 +209,7 @@ class EmailService:
           <tr>
             <td style="background-color: #141414; padding: 25px; text-align: center; border-top: 1px solid #2D2D2D;">
               <p style="color: #4B5563; font-size: 11px; margin: 0;">
-                © {datetime.now().year} Smith AI - Sistema de Atendimento Inteligente
+                © {datetime.now().year} Scale AI - Sistema de Atendimento Inteligente
               </p>
             </td>
           </tr>

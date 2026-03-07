@@ -9,8 +9,8 @@ import { updateOne } from '@/lib/db';
 export async function PUT(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
-    const userCookie = cookieStore.get('smith_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
 
     if (!adminCookie && !userCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

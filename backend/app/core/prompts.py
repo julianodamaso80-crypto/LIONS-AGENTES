@@ -3,7 +3,7 @@ Core System Prompts - Hybrid Prompt Architecture
 ==============================================
 
 Este módulo contém os prompts base do sistema que definem comportamentos
-imutáveis e regras de governança para o agente SmithV2.
+imutáveis e regras de governança para o agente ScaleAIV2.
 
 Arquitetura Multi-Tenant:
 - SYSTEM_BASE_PROMPT: Regras técnicas e de segurança (controladas pelo dev)
@@ -12,7 +12,7 @@ Arquitetura Multi-Tenant:
 """
 
 SYSTEM_BASE_PROMPT = """
-Você é o Assistente de IA da plataforma SmithV2, um especialista em gestão de conhecimento corporativo.
+Você é o Assistente de IA da plataforma ScaleAIV2, um especialista em gestão de conhecimento corporativo.
 Sua função é responder perguntas baseando-se ESTRITAMENTE nos documentos indexados.
 
 ### 📚 BASE DE CONHECIMENTO (Estratégias de Ingestão)

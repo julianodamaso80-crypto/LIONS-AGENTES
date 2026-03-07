@@ -1,4 +1,4 @@
-# 🤖 Agent Smith V6.0
+# 🤖 Agent Scale AI V6.0
 
 **Enterprise-grade AI Agent Platform** — Plataforma completa para criação, gerenciamento e deploy de agentes de IA conversacionais com RAG, memória persistente e integrações multi-canal.
 
@@ -20,7 +20,7 @@
 
 ## 🎯 Visão Geral
 
-Agent Smith é uma plataforma SaaS multi-tenant que permite empresas criarem e gerenciarem agentes de IA personalizados. Cada agente pode:
+Agent Scale AI é uma plataforma SaaS multi-tenant que permite empresas criarem e gerenciarem agentes de IA personalizados. Cada agente pode:
 
 - 💬 Responder perguntas usando base de conhecimento (RAG)
 - 🧠 Manter memória de longo prazo por usuário
@@ -158,8 +158,8 @@ flowchart TB
 ### 1. Clone o Repositório
 
 ```bash
-git clone https://github.com/LionLabsCommunity/Agent-SmithV6.git
-cd Agent-SmithV6
+git clone https://github.com/LionLabsCommunity/Agent-Scale-AIV6.git
+cd Agent-Scale-AIV6
 ```
 
 ### 2. Configure o Banco de Dados (Supabase)
@@ -517,13 +517,13 @@ O **Docling Service** é um microserviço separado que converte documentos (PDF,
 Crie um arquivo `.env` dentro da pasta `docling-service/`:
 
 ```env
-# Auth (deve ser igual ao DOCLING_SERVICE_KEY do Smith)
+# Auth (deve ser igual ao DOCLING_SERVICE_KEY do Scale AI)
 SERVICE_KEY=sua-chave-secreta-aqui
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# MinIO (mesma instância do Agent Smith)
+# MinIO (mesma instância do Agent Scale AI)
 MINIO_ENDPOINT=host.docker.internal:9000   # Dev local (Docker Desktop)
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin123
@@ -732,7 +732,7 @@ flowchart LR
 
 ## 💬 Widget Embeddable — Chat para Sites Externos
 
-O Agent Smith oferece um widget de chat que pode ser embutido em qualquer site externo com uma única linha de código. O fluxo completo funciona assim:
+O Agent Scale AI oferece um widget de chat que pode ser embutido em qualquer site externo com uma única linha de código. O fluxo completo funciona assim:
 
 ### Arquitetura
 
@@ -747,9 +747,9 @@ sequenceDiagram
     WJS->>IFrame: Cria iframe invisível (bolinha 70x70px)
     IFrame->>API: GET /api/agents/{agentId}/public
     API-->>IFrame: Config do agente (cores, título, lead capture)
-    IFrame->>WJS: postMessage('smith:ready')
+    IFrame->>WJS: postMessage('scale:ready')
     Note over Site: Usuário clica na bolinha
-    IFrame->>WJS: postMessage('smith:resize', { isOpen: true })
+    IFrame->>WJS: postMessage('scale:resize', { isOpen: true })
     WJS->>IFrame: Expande iframe para 380x600px
     IFrame->>API: POST /api/chat (chatInput, channel: 'widget')
     API-->>IFrame: Resposta do agente (streaming JSON)
@@ -835,7 +835,7 @@ sequenceDiagram
 ## 📁 Estrutura do Projeto
 
 ```
-SmithV5.0/
+Scale-AI-V5.0/
 ├── app/                          # Next.js App Router
 │   ├── login/                    # Autenticação
 │   ├── register/                 # Registro de usuários
@@ -1024,7 +1024,7 @@ celery -A app.workers.celery_app beat --loglevel=info
 
 ## 🛠 HTTP Tools (Integrações Customizadas)
 
-O Agent Smith permite criar **ferramentas HTTP customizadas** para integrar seu agente com sistemas externos (ERP, CRM, APIs internas, etc.) — tudo via interface gráfica, sem escrever código.
+O Agent Scale AI permite criar **ferramentas HTTP customizadas** para integrar seu agente com sistemas externos (ERP, CRM, APIs internas, etc.) — tudo via interface gráfica, sem escrever código.
 
 ### Como Criar uma HTTP Tool
 
@@ -1101,7 +1101,7 @@ Conversa exemplo:
 
 ## 🔌 MCP Tools (Model Context Protocol)
 
-O Agent Smith suporta integração com serviços externos via **MCP (Model Context Protocol)**. Isso permite que agentes acessem Google Drive, Google Calendar, GitHub, Slack, etc.
+O Agent Scale AI suporta integração com serviços externos via **MCP (Model Context Protocol)**. Isso permite que agentes acessem Google Drive, Google Calendar, GitHub, Slack, etc.
 
 ### Servidores MCP Disponíveis
 
@@ -1263,7 +1263,7 @@ GET /api/v1/documents/{document_id}
 
 ## 📊 Monitoramento (Sentry)
 
-O Agent Smith integra com **Sentry** para tracking de erros em produção.
+O Agent Scale AI integra com **Sentry** para tracking de erros em produção.
 
 ### Configuração
 
@@ -1348,7 +1348,7 @@ O **Docling Service** é um microserviço separado que converte documentos (PDF,
 ### Arquitetura
 
 ```
-Smith Backend                    Docling Service
+Scale AI Backend                    Docling Service
 ─────────────                    ──────────────
                                 ┌──────────┐
 POST /parse ──── HTTP ─────────▶│  API     │
@@ -1381,12 +1381,12 @@ GET /status/{id} ── HTTP ──────▶ retorna markdown + metadata
 
 **Fluxo detalhado:**
 
-1. **Smith Backend** envia o arquivo via `POST /parse` → recebe `task_id` (202 Accepted)
+1. **Scale AI Backend** envia o arquivo via `POST /parse` → recebe `task_id` (202 Accepted)
 2. **API** salva o arquivo no MinIO em `docling-temp/{task_id}/{filename}`
 3. **API** enfileira task Celery com o path do MinIO
 4. **Worker** baixa o arquivo do MinIO → processa com Docling → retorna resultado via Redis
 5. **Worker** limpa o arquivo temporário do MinIO e do `/tmp` local
-6. **Smith Backend** faz polling `GET /status/{task_id}` até receber `status: completed`
+6. **Scale AI Backend** faz polling `GET /status/{task_id}` até receber `status: completed`
 
 ### Estrutura do Microserviço
 
@@ -1411,20 +1411,20 @@ docling-service/
 | **API** | Recebe arquivos, salva no MinIO, enfileira tasks | FastAPI + MinIO SDK |
 | **Worker** | Baixa do MinIO, processa com Docling, retorna Markdown | Celery + Docling + PyTorch CPU |
 | **Redis** | Broker de mensagens + armazenamento de resultados | Redis 7 |
-| **MinIO** | Storage de arquivos temporários (compartilhado com Smith) | MinIO (mesmo bucket `documents`) |
+| **MinIO** | Storage de arquivos temporários (compartilhado com Scale AI) | MinIO (mesmo bucket `documents`) |
 
 ### Variáveis de Ambiente
 
 #### Docling Service (`.env`)
 
 ```env
-# Auth (deve ser igual ao DOCLING_SERVICE_KEY do Smith)
+# Auth (deve ser igual ao DOCLING_SERVICE_KEY do Scale AI)
 SERVICE_KEY=sua-chave-secreta-aqui
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
 
-# MinIO (mesma instância do Agent Smith)
+# MinIO (mesma instância do Agent Scale AI)
 MINIO_ENDPOINT=host.docker.internal:9000   # Dev local (Docker Desktop)
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin123
@@ -1447,7 +1447,7 @@ RESULT_TTL_SECONDS=3600
 PORT=8001
 ```
 
-#### Smith Backend (adicionar ao `.env` existente)
+#### Scale AI Backend (adicionar ao `.env` existente)
 
 ```env
 # Docling Microservice
@@ -1460,7 +1460,7 @@ DOCLING_MAX_WAIT=600                            # Timeout máximo (10 min)
 ### Dev Local
 
 ```bash
-# Terminal 1: Suba o MinIO e Redis do Smith (se não estiver rodando)
+# Terminal 1: Suba o MinIO e Redis do Scale AI (se não estiver rodando)
 cd backend && docker compose up -d
 
 # Terminal 2: Suba o Docling Service
@@ -1468,7 +1468,7 @@ cd docling-service
 cp .env.example .env   # Configure as variáveis
 docker-compose up --build
 
-# Terminal 3: Suba o Smith Backend
+# Terminal 3: Suba o Scale AI Backend
 cd backend && uvicorn app.main:app --reload
 ```
 
@@ -1486,7 +1486,7 @@ No Railway, crie 3 serviços para o Docling:
 
 | Serviço | Comando | Notas |
 |---------|---------|-------|
-| **Redis** | Add-on Railway | Redis compartilhado com Smith |
+| **Redis** | Add-on Railway | Redis compartilhado com Scale AI |
 | **Docling API** | CMD default do Dockerfile | `uvicorn app.main:app ...` |
 | **Docling Worker** | Override | `celery -A app.celery_app worker -Q docling -c 2 --loglevel=info` |
 
@@ -1495,12 +1495,12 @@ Env vars de produção:
 ```env
 MINIO_ENDPOINT=minio-production-xxxx.up.railway.app:443
 MINIO_SECURE=true
-MINIO_ACCESS_KEY=<mesmo do Smith>
-MINIO_SECRET_KEY=<mesmo do Smith>
+MINIO_ACCESS_KEY=<mesmo do Scale AI>
+MINIO_SECRET_KEY=<mesmo do Scale AI>
 REDIS_URL=redis://default:xxx@redis.railway.internal:6379
 ```
 
-No Smith Backend (Railway), adicione:
+No Scale AI Backend (Railway), adicione:
 
 ```env
 DOCLING_SERVICE_URL=http://docling-api.railway.internal:8001

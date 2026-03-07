@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Task result TTL
     RESULT_TTL_SECONDS: int = 3600  # 1 hour
 
-    # MinIO (shared object storage with Smith)
+    # MinIO (shared object storage with Scale AI)
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = ""
     MINIO_SECRET_KEY: str = ""

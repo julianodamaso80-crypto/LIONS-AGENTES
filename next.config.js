@@ -10,6 +10,6 @@ const nextConfig = {
 
 module.exports = withSentryConfig(nextConfig, {
   silent: true,
-  org: "smith-v2-lionlabs",
+  org: "scale-v2-lionlabs",
   project: "javascript-nextjs",
 });

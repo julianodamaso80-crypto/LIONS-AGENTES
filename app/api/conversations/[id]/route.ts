@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * PATCH /api/conversations/[id]
  *
  * Updates a conversation (title, updated_at, status).
- * Requires: smith_user_session OR smith_admin_session cookie
+ * Requires: scale_user_session OR scale_admin_session cookie
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * GET /api/conversations/[id]
  *
  * Gets a single conversation with messages.
- * Requires: smith_user_session OR smith_admin_session cookie
+ * Requires: scale_user_session OR scale_admin_session cookie
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -108,8 +108,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // AUTHENTICATION CHECK
     // =============================================
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('smith_user_session');
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const userCookie = cookieStore.get('scale_user_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!userCookie && !adminCookie) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });

@@ -4,7 +4,7 @@ UCP Tool Factory - Gera tools LangChain DINAMICAMENTE a partir do manifest UCP.
 IMPORTANTE: Esta versão NÃO usa definições hardcoded.
 As tools são geradas a partir das capabilities declaradas no manifest da loja.
 
-Se a loja declarar "dev.ucp.shopping.checkout", o Smith cria a tool automaticamente.
+Se a loja declarar "dev.ucp.shopping.checkout", o Scale AI cria a tool automaticamente.
 Se a loja declarar uma capability customizada, também seremos capazes de usá-la.
 
 Referência: https://ucp.dev/specification/overview/
@@ -302,7 +302,7 @@ class DynamicUCPTool(BaseTool):
             if "_meta" not in params:
                 params["_meta"] = {
                     "ucp": {
-                        "profile": "https://agent.smith.ai/profiles/shopping-agent.json"
+                        "profile": "https://agent.scale.ai/profiles/shopping-agent.json"
                     }
                 }
                 logger.info("[UCP Tool] Added _meta.ucp.profile to checkout params")

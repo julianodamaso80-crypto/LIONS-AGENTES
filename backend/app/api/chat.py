@@ -548,14 +548,14 @@ async def chat_stream(
     # ===========================================================================
     # 🛡️ GUARDRAILS SECURITY CHECK (BEFORE STREAMING)
     # ===========================================================================
-    from app.agents.guardrails import SmithGuardrail
+    from app.agents.guardrails import ScaleGuardrail
 
     final_message = enriched_message
     guardrail = None
 
     if agent_data:
         try:
-            guardrail = SmithGuardrail(
+            guardrail = ScaleGuardrail(
                 agent_config=agent_data,
                 company_id=str(chat_request.companyId)
             )

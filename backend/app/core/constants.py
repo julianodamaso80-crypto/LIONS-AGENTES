@@ -1,5 +1,5 @@
 """
-Constantes centralizadas do Agent Smith V2.
+Constantes centralizadas do Agent Scale AI V2.
 
 Todas as configurações hardcoded ficam aqui para fácil manutenção.
 """

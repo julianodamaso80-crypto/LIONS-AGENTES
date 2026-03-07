@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/user/company-data
  *
  * Returns the logged-in user's company_id and company settings (allow_web_search).
- * Requires: smith_user_session cookie
+ * Requires: scale_user_session cookie
  */
 export async function GET(request: NextRequest) {
   try {

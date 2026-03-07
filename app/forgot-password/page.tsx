@@ -75,8 +75,8 @@ export default function ForgotPasswordPage() {
               type="button"
             >
               <Image
-                src="/smith-logo.png"
-                alt="Smith Logo"
+                src="/scale-logo.png"
+                alt="Scale AI Logo"
                 width={48}
                 height={48}
                 className="mb-2"

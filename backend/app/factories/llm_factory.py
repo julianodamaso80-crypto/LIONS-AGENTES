@@ -163,7 +163,7 @@ class LLMFactory:
             "streaming": True,
             "default_headers": {
                 "HTTP-Referer": settings.FRONTEND_URL,
-                "X-Title": "Agent Smith",
+                "X-Title": "Agent Scale AI",
             },
             "model_kwargs": {
                 "stream_options": {"include_usage": True},

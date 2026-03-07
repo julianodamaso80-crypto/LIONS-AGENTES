@@ -65,7 +65,7 @@ export default function EmbedChat() {
 
 
   // Chave para localStorage
-  const getStorageKey = (suffix: string) => `smith_${agentId}_${suffix}`;
+  const getStorageKey = (suffix: string) => `scale_${agentId}_${suffix}`;
 
   // ==========================================================================
   // SESSION TTL HELPERS (24 hours)
@@ -212,13 +212,13 @@ export default function EmbedChat() {
         setLoading(false);
 
         // Notify parent that widget is ready
-        window.parent.postMessage({ type: 'smith:ready' }, '*');
+        window.parent.postMessage({ type: 'scale:ready' }, '*');
 
         // Send position config
         if (data.widget_config?.position) {
           window.parent.postMessage(
             {
-              type: 'smith:position',
+              type: 'scale:position',
               position: data.widget_config.position,
             },
             '*',
@@ -242,7 +242,7 @@ export default function EmbedChat() {
   useEffect(() => {
     window.parent.postMessage(
       {
-        type: 'smith:resize',
+        type: 'scale:resize',
         isOpen: isOpen,
         width: '380px',
         height: '600px',
@@ -259,7 +259,7 @@ export default function EmbedChat() {
   // Listen for toggle from parent
   useEffect(() => {
     const handler = (event: MessageEvent) => {
-      if (event.data.type === 'smith:toggle') {
+      if (event.data.type === 'scale:toggle') {
         setIsOpen((prev) => !prev);
       }
     };
@@ -714,12 +714,12 @@ export default function EmbedChat() {
       {config.showFooter !== false && (
         <div className="text-center py-2 bg-gray-50 border-t shrink-0">
           <a
-            href="https://agentsmith.ai"
+            href="https://agentscale.ai"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
           >
-            Powered by Agent Smith
+            Powered by Agent Scale AI
           </a>
         </div>
       )}

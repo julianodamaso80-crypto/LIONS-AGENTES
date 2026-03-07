@@ -1,7 +1,7 @@
 """
 MCP OAuth Service - Credenciais da PLATAFORMA.
 
-As credenciais OAuth (Client ID + Secret) são da plataforma Agent Smith.
+As credenciais OAuth (Client ID + Secret) são da plataforma Agent Scale AI.
 Cada agente só armazena os TOKENS de acesso após autorização.
 """
 
@@ -77,7 +77,7 @@ class MCPOAuthService:
 
         self.redirect_base = os.getenv(
             "MCP_OAUTH_REDIRECT_BASE",
-            "https://smithv2-production.up.railway.app"
+            "https://scalev2-production.up.railway.app"
         )
 
     @property

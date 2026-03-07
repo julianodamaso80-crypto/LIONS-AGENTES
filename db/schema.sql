@@ -1,5 +1,5 @@
 -- =============================================
--- Agent Smith V6 - PostgreSQL Schema
+-- Agent Scale AI V6 - PostgreSQL Schema
 -- Migrated from Supabase to Railway Postgres
 -- =============================================
 

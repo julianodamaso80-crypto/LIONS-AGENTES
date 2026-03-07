@@ -15,8 +15,8 @@ export default function PendingApprovalPage() {
         <Card className="border-none shadow-lg bg-gray-900/50 backdrop-blur-sm">
           <CardHeader className="flex flex-col items-center space-y-4 pt-8 pb-6">
             <Image
-              src="/smith-logo.png"
-              alt="Smith Logo"
+              src="/scale-logo.png"
+              alt="Scale AI Logo"
               width={64}
               height={64}
               className="w-16 h-16"

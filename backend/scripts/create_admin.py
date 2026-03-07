@@ -8,7 +8,7 @@ Uso:
 
 Pré-requisito:
     A tabela admin_users deve existir no banco.
-    Se você rodou o smith_master_setup.sql, a tabela já foi criada!
+    Se você rodou o scale_master_setup.sql, a tabela já foi criada!
 
 O script irá solicitar:
 - Email do admin

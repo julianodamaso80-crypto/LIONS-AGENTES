@@ -200,7 +200,7 @@ export default function AdminConversationsPage() {
           user_name: displayName,
           user_avatar: displayAvatar,
           // 🔥 ATUALIZADO: Usa nome do agente do JOIN
-          agent_name: conv.agents?.name || conv.agent_name || 'Smith Agent',
+          agent_name: conv.agents?.name || conv.agent_name || 'Scale AI Agent',
           status_color: conv.status_color || 'green',
           // 🔔 Status para Human Handoff
           status: conv.status || 'open',

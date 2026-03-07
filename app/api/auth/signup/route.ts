@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
 
-    response.cookies.set('smith_user_session', JSON.stringify(session), {
+    response.cookies.set('scale_user_session', JSON.stringify(session), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

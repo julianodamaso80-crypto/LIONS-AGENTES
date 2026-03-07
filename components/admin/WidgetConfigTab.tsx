@@ -42,7 +42,7 @@ export function WidgetConfigTab({ agent, onChange }: Props) {
     setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://app.smith.ai';
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://app.scale.ai';
 
   const embedCode = `<script id="mw" src="${appUrl}/widget.js" onload="window.mw && window.mw('init', { agentId: '${agent.id}' })"></script>`;
 
@@ -215,7 +215,7 @@ export function WidgetConfigTab({ agent, onChange }: Props) {
             </div>
             {config.showFooter !== false && (
               <div className="text-center py-2 bg-gray-50 border-t">
-                <span className="text-[10px] text-gray-400">Powered by Agent Smith</span>
+                <span className="text-[10px] text-gray-400">Powered by Agent Scale AI</span>
               </div>
             )}
           </div>

@@ -14,7 +14,7 @@ BILLING_INTERVAL_MINUTES = int(os.getenv("BILLING_INTERVAL_MINUTES", "5"))
 
 # Create Celery app
 celery_app = Celery(
-    "smith_billing",
+    "scale_billing",
     broker=REDIS_URL,
     backend=REDIS_URL,
     include=[

@@ -249,7 +249,7 @@ class IntegrationService:
         # logger.info(f"[INTEGRATION] Looking for user with phone...")
 
         # Email único por telefone + empresa (evita conflitos entre empresas)
-        generated_email = f"{phone}_{company_id}@whatsapp.smith.ai"
+        generated_email = f"{phone}_{company_id}@whatsapp.scale.ai"
 
         # 1. Tentar encontrar usuário por PHONE + COMPANY (mais rápido se tiver índice)
         try:
@@ -318,7 +318,7 @@ class IntegrationService:
 
         # Dados do novo usuário - email e CPF únicos por telefone + empresa
         user_data = {
-            "email": generated_email,  # {phone}_{company_id}@whatsapp.smith.ai
+            "email": generated_email,  # {phone}_{company_id}@whatsapp.scale.ai
             "phone": phone,
             "company_id": company_id,
             "status": "lead",

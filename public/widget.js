@@ -1,7 +1,7 @@
 (function (window, document) {
     'use strict';
 
-    var SmithWidget = {
+    var ScaleWidget = {
         iframe: null,
         config: {},
         isOpen: false,
@@ -9,7 +9,7 @@
         init: function (options) {
             this.config = options || {};
             if (!this.config.agentId) {
-                console.error('SmithWidget: agentId is required');
+                console.error('ScaleWidget: agentId is required');
                 return;
             }
             this.createIframe();
@@ -35,7 +35,7 @@
             var baseUrl = currentScript && currentScript.src ? currentScript.src.split('/widget.js')[0] : window.location.origin;
 
             iframe.src = baseUrl + '/embed/' + this.config.agentId;
-            iframe.id = 'smith-widget-iframe';
+            iframe.id = 'scale-widget-iframe';
             iframe.style.cssText = [
                 'position: fixed',
                 'bottom: 20px',
@@ -64,11 +64,11 @@
                 var data = event.data;
                 if (!data || typeof data !== 'object') return;
 
-                if (data.type === 'smith:ready') {
-                    console.log('Smith Widget loaded');
+                if (data.type === 'scale:ready') {
+                    console.log('Scale AI Widget loaded');
                 }
 
-                if (data.type === 'smith:resize') {
+                if (data.type === 'scale:resize') {
                     self.isOpen = data.isOpen;
                     var isMobile = window.innerWidth < 480;
 
@@ -95,7 +95,7 @@
                     }
                 }
 
-                if (data.type === 'smith:position') {
+                if (data.type === 'scale:position') {
                     if (data.position === 'bottom-left') {
                         self.iframe.style.right = 'auto';
                         self.iframe.style.left = '20px';
@@ -122,8 +122,8 @@
 
     // Expose globally
     window.mw = function (method, options) {
-        if (SmithWidget[method]) {
-            SmithWidget[method](options);
+        if (ScaleWidget[method]) {
+            ScaleWidget[method](options);
         }
     };
 

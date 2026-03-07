@@ -157,8 +157,8 @@ export function UnifiedSidebar({
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5 flex-shrink-0">
                 <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
                   <img
-                    src="/smith-logo.png"
-                    alt="Smith AI"
+                    src="/scale-logo.png"
+                    alt="Scale AI"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -166,7 +166,7 @@ export function UnifiedSidebar({
 
               <div className="flex flex-col min-w-0">
                 <span className="font-bold text-lg tracking-wide text-foreground leading-none">
-                  SMITH AI
+                  SCALE AI
                 </span>
                 <span className="text-sm font-semibold text-blue-400 truncate">
                   {userProfile.companyName}
@@ -265,7 +265,7 @@ export function UnifiedSidebar({
           <div className="p-4 border-t border-border">
             <div className="flex justify-center mb-4">
               <span className="text-[10px] text-muted-foreground">
-                Sistema Smith v6.1
+                Sistema Scale AI v6.1
               </span>
             </div>
 

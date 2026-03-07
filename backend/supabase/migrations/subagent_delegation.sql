@@ -1,6 +1,6 @@
 -- ============================================================
 -- SubAgent System Migration
--- Agent Smith V6.1 — Multi-Agent Delegation
+-- Agent Scale AI V6.1 — Multi-Agent Delegation
 -- ============================================================
 
 -- 1. agent_delegations: Relação Orquestrador ↔ SubAgent

@@ -13,7 +13,7 @@ export async function GET(
   try {
     // Auth check
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
     if (!adminCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -59,7 +59,7 @@ export async function DELETE(
   try {
     // Auth check
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
     if (!adminCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -41,7 +41,7 @@ export default function NoCompanyPage() {
 
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-300">
-            Entre em contato através do email: suporte@smith.ai
+            Entre em contato através do email: suporte@scale.ai
           </p>
         </div>
 

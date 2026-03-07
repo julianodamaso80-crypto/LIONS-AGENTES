@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/agents
  *
  * Lists active agents for the logged-in user's company.
- * Requires: smith_user_session cookie
+ * Requires: scale_user_session cookie
  */
 export async function GET(request: NextRequest) {
   try {

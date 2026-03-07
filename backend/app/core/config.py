@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # Get API key at: https://smith.langchain.com/settings
     LANGCHAIN_TRACING_V2: bool = False  # Disabled by default
     LANGCHAIN_API_KEY: Optional[str] = None
-    LANGCHAIN_PROJECT: str = "agent-smith"
+    LANGCHAIN_PROJECT: str = "agent-scale-ai"
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGSMITH_WORKSPACE_ID: Optional[str] = None  # Required for org-scoped Service Keys
 
@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Frontend URL (used in email templates)
-    FRONTEND_URL: str = "https://app.smith.ai"
+    FRONTEND_URL: str = "https://app.scale.ai"
 
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"

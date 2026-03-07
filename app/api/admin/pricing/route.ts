@@ -6,7 +6,7 @@ const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
-  const adminCookie = cookieStore.get('smith_admin_session');
+  const adminCookie = cookieStore.get('scale_admin_session');
   if (!adminCookie) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }

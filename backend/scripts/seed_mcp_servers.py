@@ -8,7 +8,7 @@ Uso:
 
 Pré-requisito:
     A tabela mcp_servers deve existir no banco.
-    Se você rodou o smith_master_setup.sql, a tabela já foi criada!
+    Se você rodou o scale_master_setup.sql, a tabela já foi criada!
 
 Este script popula a tabela com as configurações dos servidores MCP internos.
 Apenas metadados de configuração - SEM credenciais ou secrets.

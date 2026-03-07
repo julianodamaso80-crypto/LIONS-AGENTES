@@ -71,8 +71,8 @@ export const HeroSection: React.FC = () => {
           <div className="flex items-center">
             <div className="text-2xl font-bold flex items-center justify-center w-10 h-10">
               <Image
-                src="/smith-logo.png"
-                alt="Smith Logo"
+                src="/scale-logo.png"
+                alt="Scale AI Logo"
                 width={40}
                 height={40}
                 className="w-10 h-10"
@@ -220,7 +220,7 @@ export const HeroSection: React.FC = () => {
             whileTap={{ scale: 0.95 }}
             className="flex items-center space-x-2 px-4 py-2 bg-accent/20 hover:bg-accent/30 backdrop-blur-sm rounded-full text-sm mb-6 transition-all duration-300 group border border-border/10"
           >
-            <span>Agent Smith v6.0</span>
+            <span>Agent Scale AI v6.0</span>
             <svg
               width="16"
               height="16"
@@ -239,7 +239,7 @@ export const HeroSection: React.FC = () => {
           </motion.button>
 
           <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl font-light mb-2">
-            Smith AI
+            Scale AI
           </motion.h1>
 
           <motion.h2
@@ -250,7 +250,7 @@ export const HeroSection: React.FC = () => {
           </motion.h2>
 
           <motion.p variants={itemVariants} className="text-muted-foreground mb-9 max-w-2xl">
-            Converse com Smith, seu assistente pessoal com inteligência artificial avançada.
+            Converse com Scale AI, seu assistente pessoal com inteligência artificial avançada.
           </motion.p>
 
           <motion.button

@@ -34,7 +34,7 @@ export interface AdminSessionData {
  */
 export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET!,
-  cookieName: 'smith_user_session',
+  cookieName: 'scale_user_session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -47,7 +47,7 @@ export const sessionOptions: SessionOptions = {
  */
 export const adminSessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET!,
-  cookieName: 'smith_admin_session',
+  cookieName: 'scale_admin_session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,

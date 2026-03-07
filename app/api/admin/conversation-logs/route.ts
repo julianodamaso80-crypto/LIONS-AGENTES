@@ -9,7 +9,7 @@ import { queryAll } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const adminCookie = cookieStore.get('smith_admin_session');
+    const adminCookie = cookieStore.get('scale_admin_session');
 
     if (!adminCookie) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
