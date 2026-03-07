@@ -95,6 +95,12 @@ export const HeroSection: React.FC = () => {
               Login
             </button>
             <button
+              onClick={() => (window.location.href = '/register')}
+              className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full text-sm transition-colors text-white"
+            >
+              Criar Conta
+            </button>
+            <button
               onClick={() => (window.location.href = '/admin')}
               className="px-4 py-2 bg-muted/80 backdrop-blur-sm rounded-full text-sm hover:bg-muted transition-colors text-foreground"
             >
@@ -153,6 +159,12 @@ export const HeroSection: React.FC = () => {
               </button>
               <button onClick={() => (window.location.href = '/login')} className="px-6 py-3">
                 Login
+              </button>
+              <button
+                onClick={() => (window.location.href = '/register')}
+                className="px-6 py-3 bg-blue-600 rounded-full text-white"
+              >
+                Criar Conta
               </button>
               <button
                 onClick={() => (window.location.href = '/admin')}

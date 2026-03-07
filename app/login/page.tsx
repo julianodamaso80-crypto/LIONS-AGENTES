@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -169,6 +169,14 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
+          <CardFooter className="flex justify-center border-t border-gray-800 !py-4">
+            <p className="text-center text-sm text-gray-400">
+              Ainda não tem conta?{' '}
+              <a href="/register" className="text-blue-400 hover:underline">
+                Criar conta gratuita
+              </a>
+            </p>
+          </CardFooter>
         </Card>
       </div>
     </div>
