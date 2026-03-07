@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryOne, updateOne } from '@/lib/db';
+import { query, queryOne, updateOne, insertOne } from '@/lib/db';
 import { createUser, SignupData } from '@/lib/auth';
 import { createSession } from '@/lib/session';
 import { logSystemAction, getClientInfo } from '@/lib/logger';
@@ -100,6 +100,29 @@ export async function POST(request: NextRequest) {
         { error: 'A senha deve ter no mínimo 8 caracteres' },
         { status: 400 },
       );
+    }
+
+    // Se não tem invite (sem empresa), criar empresa automaticamente
+    if (!inviteData) {
+      const companyName = `Empresa de ${body.firstName} ${body.lastName}`;
+      const newCompany = await insertOne('companies', {
+        company_name: companyName,
+        status: 'active',
+        plan_type: 'trial',
+        max_users: 5,
+      });
+
+      if (newCompany) {
+        signupData.companyId = newCompany.id;
+        signupData.role = 'admin_company';
+        signupData.isOwner = true;
+
+        // Criar créditos iniciais
+        await insertOne('company_credits', {
+          company_id: newCompany.id,
+          balance_brl: 0,
+        });
+      }
     }
 
     const { user, error } = await createUser(signupData);
