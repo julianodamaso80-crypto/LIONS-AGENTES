@@ -344,12 +344,8 @@ function RegisterPageContent() {
         return;
       }
 
-      // Se cadastrou via invite, mostra mensagem de pendente
-      if (inviteToken) {
-        router.push('/pending-approval');
-      } else {
-        router.push('/dashboard');
-      }
+      // Redireciona direto para o dashboard
+      router.push('/dashboard/chat');
     } catch (error) {
       console.error('Signup error:', error);
       setSubmitError('Erro ao conectar com o servidor');

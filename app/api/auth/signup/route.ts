@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       termsAccepted: body.termsAccepted,
       acceptedTermsVersion: body.acceptedTermsVersion || null,
       companyId: inviteData?.company_id,
-      status: 'pending', // ✅ CHANGED: Everyone needs approval
+      status: 'active', // Usuários aprovados automaticamente
       role: inviteData?.role || undefined,
       isOwner: inviteData?.is_owner_invite || false, // ✅ NEW: Extract owner flag
     };
