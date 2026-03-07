@@ -582,7 +582,7 @@ CREATE TABLE IF NOT EXISTS user_memories (
     last_consolidation_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, company_id, COALESCE(agent_id, '00000000-0000-0000-0000-000000000000'))
+    CONSTRAINT uq_user_memories_user_company_agent UNIQUE (user_id, company_id, agent_id)
 );
 
 -- Session Summaries
